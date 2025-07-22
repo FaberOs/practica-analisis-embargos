@@ -43,11 +43,19 @@ practica-analisis-embargos/
 └── README.md
 ```
 
-## Instalación
 
 ## Instalación y requisitos
 
-1. **Clona este repositorio:**
+Antes de comenzar, asegúrate de cumplir con los siguientes requisitos:
+
+1. **Tener Python instalado**
+   - Se recomienda Python 3.8 o superior. Puedes descargarlo desde [python.org](https://www.python.org/downloads/).
+   - Verifica la instalación ejecutando:
+     ```sh
+     python --version
+     ```
+
+2. **Clonar el repositorio y crear un entorno virtual:**
    ```sh
    git clone https://github.com/FaberOs/practica-analisis-embargos.git
    cd practica-analisis-embargos
@@ -57,25 +65,47 @@ practica-analisis-embargos/
    pip install -r requirements.txt
    ```
 
-2. **Prepara los datasets fuente:**
-   - Es necesario contar con los archivos CSV originales de los embargos bancarios, con el formato:
-     - `consulta detalle embargos-*.csv` (por ejemplo: `consulta detalle embargos-2024-1.csv`, `consulta detalle embargos-2024-2.csv`, etc.)
-   - Coloca estos archivos en la raíz del repositorio para que el procesamiento y los dashboards funcionen correctamente.
+3. **Instalar Jupyter Notebook** (recomendado para ejecutar el notebook de procesamiento):
+   - Una vez activado el entorno virtual, instala Jupyter Notebook dentro de la carpeta del proyecto:
+     ```sh
+     pip install jupyter
+     ```
+   - Abre el notebook directamente ejecutando:
+     ```sh
+     jupyter notebook modelos_ml_embargos.ipynb
+     ```
+   - Se abrirá una ventana en tu navegador mostrando el notebook listo para ejecutar.
+   - Ejecuta cada celda del notebook en orden (usando Shift+Enter o el botón de ejecutar) hasta completar el procesamiento y generación de los archivos CSV necesarios.
+
+
+4. **Prepara los datasets fuente:**
+   - Antes de ejecutar el notebook `modelos_ml_embargos.ipynb`, asegúrate de tener los archivos CSV originales de los embargos bancarios en la carpeta raíz del repositorio, con el formato:
+     - `consulta detalle embargos-*.csv` (por ejemplo: `consulta detalle embargos-2024-01.csv`, `consulta detalle embargos-2024-02.csv`, etc.)
+   - Si estos archivos no están presentes, el notebook no podrá procesar ni generar los datasets necesarios para los dashboards.
+
+---
+
 
 ## Uso y orden de ejecución
 
-**Importante:** El orden correcto para ejecutar el proyecto es el siguiente:
+Sigue estos pasos para ejecutar el proyecto correctamente:
 
-1. **Procesamiento y generación de datasets:**
-   - Abre y ejecuta el notebook Jupyter `modelos_ml_embargos.ipynb`.
-   - Este notebook realiza la consolidación, limpieza y entrenamiento de modelos, y genera los archivos CSV procesados necesarios para los dashboards:
+1. **Preparar los datos fuente:**
+   - Coloca todos los archivos `consulta detalle embargos-*.csv` en la carpeta raíz del repositorio antes de abrir el notebook.
+
+2. **Procesar y generar datasets:**
+   - Abre el notebook Jupyter `modelos_ml_embargos.ipynb` ejecutando:
+     ```sh
+     jupyter notebook modelos_ml_embargos.ipynb
+     ```
+   - Ejecuta cada celda en orden (usando Shift+Enter o el botón de ejecutar). El notebook consolidará, limpiará y procesará los datos, generando los siguientes archivos CSV:
      - `embargos_consolidado_mensual.csv`
      - `predicciones_oficios_por_mes.csv`
      - `predicciones_demandados_por_mes.csv`
      - `resultados_clasificaciones.csv`
 
-2. **Dashboards interactivos:**
-   - Una vez generados los CSV anteriores, puedes lanzar los dashboards para análisis exploratorio y visualización:
+3. **Ejecutar los dashboards interactivos:**
+   - Una vez generados los archivos CSV anteriores, puedes lanzar los dashboards para análisis exploratorio y visualización:
      - Para el dashboard de embargos:
        ```sh
        streamlit run dashboard_embargos.py
@@ -84,7 +114,7 @@ practica-analisis-embargos/
        ```sh
        streamlit run dashboard_predicciones.py
        ```
-   - Ambos dashboards requieren los archivos CSV generados en el paso anterior.
+   - Ambos dashboards requieren los archivos CSV generados en el paso anterior y deben estar en la carpeta raíz.
 
 ---
 
