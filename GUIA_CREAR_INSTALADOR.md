@@ -2,7 +2,7 @@
 
 Esta guía te explica paso a paso cómo crear el instalador ejecutable del Dashboard de Análisis de Embargos Bancarios.
 
-## 📋 Requisitos Previos
+## Requisitos Previos
 
 Antes de comenzar, asegúrate de tener instalado:
 
@@ -15,7 +15,7 @@ Antes de comenzar, asegúrate de tener instalado:
    - Descarga desde: https://jrsoftware.org/isinfo.php
    - Instala la versión más reciente (6.x o superior)
 
-## 🔧 Paso 1: Crear el Ejecutable (.exe)
+## Paso 1: Crear el Ejecutable (.exe)
 
 ### 1.1. Preparar el Entorno
 
@@ -38,7 +38,7 @@ Ejecuta el script `build_executable.py`:
 python build_executable.py
 ```
 
-**⏱️ Tiempo estimado:** 5-15 minutos (depende de tu computadora)
+**Tiempo estimado:** 5-15 minutos (depende de tu computadora)
 
 ### 1.3. Verificar el Ejecutable
 
@@ -47,7 +47,7 @@ Una vez completado, deberías encontrar el ejecutable en:
 dist\DashboardEmbargos.exe
 ```
 
-**⚠️ Importante:**
+**Importante:**
 - Si el ejecutable anterior está en uso, ciérralo primero
 - Si aparece un error de "Acceso denegado", cierra cualquier proceso relacionado
 
@@ -59,7 +59,7 @@ Antes de crear el instalador, prueba que el ejecutable funcione:
 2. Verifica que la interfaz se abra correctamente
 3. Prueba seleccionar un archivo CSV y procesarlo
 
-## 📦 Paso 2: Crear el Instalador con Inno Setup
+## Paso 2: Crear el Instalador con Inno Setup
 
 ### 2.1. Abrir Inno Setup Compiler
 
@@ -88,7 +88,7 @@ El archivo `installer_setup.iss` ya está configurado con:
 2. Espera a que termine la compilación
 3. El instalador se generará en: `installer\DashboardEmbargos_Installer.exe`
 
-**⏱️ Tiempo estimado:** 1-3 minutos
+**Tiempo estimado:** 1-3 minutos
 
 ### 2.4. Verificar el Instalador
 
@@ -99,7 +99,7 @@ El archivo `installer_setup.iss` ya está configurado con:
    - Verifica que instale correctamente
    - Prueba que la aplicación funcione después de la instalación
 
-## 🚀 Proceso Completo desde la Consola
+## Proceso Completo desde la Consola
 
 ### Método Automático (Recomendado)
 
@@ -116,10 +116,10 @@ crear_instalador.bat
 ```
 
 Estos scripts:
-1. ✅ Crean el ejecutable automáticamente
-2. ✅ Buscan Inno Setup en ubicaciones comunes
-3. ✅ Compilan el instalador
-4. ✅ Verifican que todo se haya creado correctamente
+1. Crean el ejecutable automáticamente
+2. Buscan Inno Setup en ubicaciones comunes
+3. Compilan el instalador
+4. Verifican que todo se haya creado correctamente
 
 ### Método Manual (Paso a Paso)
 
@@ -146,7 +146,7 @@ python build_executable.py
 
 **Nota:** Ajusta la ruta de ISCC.exe según tu instalación de Inno Setup.
 
-## 📝 Notas Importantes
+## Notas Importantes
 
 ### Sobre el Ejecutable
 
@@ -181,7 +181,7 @@ python build_executable.py
 - Revisa los logs en `AppData\Roaming\DashboardEmbargos\datos\streamlit_*.log`
 - Asegúrate de que todas las dependencias estén incluidas en el ejecutable
 
-## 📂 Estructura de Archivos Después de la Compilación
+## Estructura de Archivos Después de la Compilación
 
 ```
 proyecto/
@@ -195,7 +195,7 @@ proyecto/
 └── ...
 ```
 
-## ✅ Checklist Final
+## Checklist Final
 
 Antes de distribuir el instalador, verifica:
 
@@ -207,7 +207,7 @@ Antes de distribuir el instalador, verifica:
 - [ ] Los archivos CSV se pueden procesar correctamente
 - [ ] Los dashboards se abren correctamente
 
-## 🎯 Distribución
+## Distribución
 
 Una vez que el instalador esté listo y probado:
 
@@ -218,7 +218,7 @@ Una vez que el instalador esté listo y probado:
    - No requiere Python instalado
    - No requiere dependencias adicionales
 
-## 📞 Soporte
+## Soporte
 
 Si encuentras problemas al crear el instalador:
 

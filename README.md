@@ -2,7 +2,7 @@
 
 Sistema completo para la consolidación, visualización interactiva y modelado predictivo de oficios bancarios (embargos, desembargos y requerimientos) usando Python, Streamlit y Machine Learning.
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 
 - [Descripción del Proyecto](#descripción-del-proyecto)
 - [Características Principales](#características-principales)
@@ -17,7 +17,7 @@ Sistema completo para la consolidación, visualización interactiva y modelado p
 
 ---
 
-## 📖 Descripción del Proyecto
+## Descripción del Proyecto
 
 Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga operativa de embargos bancarios mensuales en el sector financiero colombiano. Aplica la metodología CRISP-DM para limpiar y consolidar los datos históricos de oficios bancarios, genera dashboards interactivos para análisis exploratorio y entrena modelos de machine learning para pronóstico y clasificación.
 
@@ -30,7 +30,7 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 ---
 
-## ✨ Características Principales
+## Características Principales
 
 ### Dashboards Interactivos
 
@@ -52,7 +52,7 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 ---
 
-## 🚀 Instalación y Requisitos
+## Instalación y Requisitos
 
 ### Requisitos del Sistema
 
@@ -99,7 +99,7 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 ---
 
-## 🎯 Uso Rápido
+## Uso Rápido
 
 ### Para Usuarios Finales (Ejecutable)
 
@@ -136,7 +136,7 @@ Los dashboards se abrirán automáticamente en tu navegador en `http://localhost
 
 ---
 
-## 💻 Uso del Ejecutable
+## Uso del Ejecutable
 
 ### Ubicación del Ejecutable
 
@@ -177,7 +177,7 @@ No necesitas hacer nada manual, el programa los gestiona automáticamente.
 
 ---
 
-## 🔨 Crear el Ejecutable
+## Crear el Ejecutable
 
 ### Requisitos Previos
 
@@ -200,21 +200,21 @@ python build_executable.py
 
 ### Características del Ejecutable
 
-- ✅ **Independiente**: No requiere Python ni dependencias instaladas
-- ✅ **Menú interactivo**: Interfaz gráfica para seleccionar CSV y dashboards
-- ✅ **Portable**: Un solo archivo ejecutable
-- ✅ **Completo**: Incluye todos los módulos necesarios (Streamlit, pandas, plotly, sklearn, xgboost)
-- ✅ **Procesamiento automático**: Solo necesitas el CSV original de la BD
+- **Independiente**: No requiere Python ni dependencias instaladas
+- **Menú interactivo**: Interfaz gráfica para seleccionar CSV y dashboards
+- **Portable**: Un solo archivo ejecutable
+- **Completo**: Incluye todos los módulos necesarios (Streamlit, pandas, plotly, sklearn, xgboost)
+- **Procesamiento automático**: Solo necesitas el CSV original de la BD
 
 ### Archivos Incluidos en el Ejecutable
 
 El ejecutable incluye automáticamente:
-- ✅ `launcher.py` - Launcher principal
-- ✅ `dashboard_embargos.py` - Dashboard de embargos
-- ✅ `dashboard_predicciones.py` - Dashboard de predicciones
-- ✅ `procesar_modelo.py` - Script de procesamiento del modelo
-- ✅ `utils_csv.py` - Utilidades CSV
-- ✅ Todas las dependencias de Python (pandas, numpy, plotly, streamlit, sklearn, xgboost, etc.)
+- `launcher.py` - Launcher principal
+- `dashboard_embargos.py` - Dashboard de embargos
+- `dashboard_predicciones.py` - Dashboard de predicciones
+- `procesar_modelo.py` - Script de procesamiento del modelo
+- `utils_csv.py` - Utilidades CSV
+- Todas las dependencias de Python (pandas, numpy, plotly, streamlit, sklearn, xgboost, etc.)
 
 ### Solución de Problemas al Compilar
 
@@ -239,7 +239,7 @@ Es normal. El ejecutable incluye Python y todas las librerías (200-500 MB).
 
 ---
 
-## 📦 Crear el Instalador
+## Crear el Instalador
 
 ### Requisitos Previos
 
@@ -269,17 +269,17 @@ if (Test-Path $innoPath) {
 ### Estructura del Instalador
 
 El instalador incluirá:
-- ✅ `DashboardEmbargos.exe` - El ejecutable principal (incluye todas las dependencias)
-- ✅ Documentación (README.md)
-- ✅ Carpeta `datos` con instrucciones
-- ✅ Accesos directos en el escritorio y menú de inicio
-- ✅ Desinstalador automático
+- `DashboardEmbargos.exe` - El ejecutable principal (incluye todas las dependencias)
+- Documentación (README.md)
+- Carpeta `datos` con instrucciones
+- Accesos directos en el escritorio y menú de inicio
+- Desinstalador automático
 
 **NOTA IMPORTANTE:**
-- ❌ Los archivos CSV NO se incluyen en el instalador
-- ✅ El usuario solo necesita el CSV original de la BD (con años en el nombre)
-- ✅ El modelo procesará los datos automáticamente
-- ✅ El ejecutable es completamente autónomo (no requiere Python instalado)
+- Los archivos CSV NO se incluyen en el instalador
+- El usuario solo necesita el CSV original de la BD (con años en el nombre)
+- El modelo procesará los datos automáticamente
+- El ejecutable es completamente autónomo (no requiere Python instalado)
 
 ### Solución de Problemas al Compilar el Instalador
 
@@ -298,35 +298,35 @@ El instalador incluirá:
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 practica-analisis-embargos/
-├── 📊 Dashboards
+├── Dashboards
 │   ├── dashboard_embargos.py              # Dashboard exploratorio (Streamlit)
 │   ├── dashboard_predicciones.py          # Dashboard de predicciones y métricas
 │   └── launcher.py                        # Launcher con interfaz gráfica
 │
-├── 🤖 Modelos y Procesamiento
+├── Modelos y Procesamiento
 │   ├── modelos_ml_embargos.ipynb          # Notebook Jupyter (desarrollo)
 │   └── procesar_modelo.py                 # Script de procesamiento (usado por el ejecutable)
 │
-├── 🛠️ Utilidades
+├── Utilidades
 │   ├── utils_csv.py                       # Utilidades para búsqueda de CSV
 │   └── requirements.txt                   # Dependencias del proyecto
 │
-├── 🔨 Herramientas de Compilación
+├── Herramientas de Compilación
 │   ├── build_executable.py                # Script para crear el ejecutable
 │   ├── installer_setup.iss                # Script de Inno Setup para el instalador
 │   └── DashboardEmbargos.spec             # Configuración de PyInstaller (generado)
 │
-├── 📦 Distribución (generados después de compilar)
+├── Distribución (generados después de compilar)
 │   ├── dist/
 │   │   └── DashboardEmbargos.exe          # EJECUTABLE FINAL
 │   └── installer/
 │       └── DashboardEmbargos_Installer.exe # INSTALADOR FINAL
 │
-└── 📄 Documentación
+└── Documentación
     └── README.md                           # Este archivo (guía completa)
 ```
 
@@ -345,7 +345,7 @@ practica-analisis-embargos/
 
 ---
 
-## 🔧 Solución de Problemas
+## Solución de Problemas
 
 ### El ejecutable no encuentra los archivos CSV
 
@@ -408,7 +408,7 @@ practica-analisis-embargos/
 
 ---
 
-## 📚 Referencias
+## Referencias
 
 - Guía CRISP-DM para predicción de embargos bancarios
 - Documentación XGBoost: https://xgboost.readthedocs.io/
@@ -420,13 +420,13 @@ practica-analisis-embargos/
 
 ---
 
-## 📝 Licencia
+## Licencia
 
 MIT License. Desarrollado por Faber Ospina
 
 ---
 
-## 🤝 Contribuciones
+## Contribuciones
 
 Las contribuciones son bienvenidas. Por favor:
 
@@ -438,7 +438,7 @@ Las contribuciones son bienvenidas. Por favor:
 
 ---
 
-## 📞 Soporte
+## Soporte
 
 Para problemas o preguntas:
 
