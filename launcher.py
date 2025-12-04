@@ -50,6 +50,29 @@ def get_script_path(script_name):
     else:
         return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), script_name))
 
+
+def get_icon_path(icon_filename="ob.ico"):
+    """Intenta localizar el icono para la ventana principal."""
+    candidates = []
+    if getattr(sys, 'frozen', False):
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            candidates.append(os.path.join(meipass, icon_filename))
+    base_path = get_base_path()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cwd = os.getcwd()
+    for tentative in [
+        os.path.join(base_path, icon_filename) if base_path else None,
+        os.path.join(script_dir, icon_filename) if script_dir else None,
+        os.path.join(cwd, icon_filename) if cwd else None,
+    ]:
+        if tentative and tentative not in candidates:
+            candidates.append(tentative)
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    return None
+
 def validate_csv_file(csv_path, csv_name, show_warning=True):
     """Valida que un archivo CSV tenga las columnas esperadas (solo advertencia, no bloquea)"""
     if not csv_path or not os.path.exists(csv_path):
@@ -216,14 +239,16 @@ def run_streamlit(script_path, base_path, dashboard_name, csv_files=None, port=8
                 shutil.copy2(script_path, dest_script_path)
                 script_path = dest_script_path
                 
-                utils_csv_source = get_script_path("utils_csv.py")
-                if utils_csv_source and os.path.exists(utils_csv_source):
-                    utils_csv_dest = os.path.join(data_path, "utils_csv.py")
-                    if utils_csv_source != utils_csv_dest:
-                        try:
-                            shutil.copy2(utils_csv_source, utils_csv_dest)
-                        except Exception as e:
-                            pass
+                shared_assets = ["utils_csv.py", "dashboard_styles.py", "ob.ico"]
+                for asset in shared_assets:
+                    asset_source = get_script_path(asset)
+                    if asset_source and os.path.exists(asset_source):
+                        asset_dest = os.path.join(data_path, asset)
+                        if os.path.abspath(asset_source) != os.path.abspath(asset_dest):
+                            try:
+                                shutil.copy2(asset_source, asset_dest)
+                            except Exception:
+                                pass
             except Exception as e:
                 pass
     
@@ -1498,6 +1523,12 @@ contacta al administrador de la Base de Datos o al equipo técnico.
 def main():
     """Función principal - crea y ejecuta la GUI"""
     root = tk.Tk()
+    icon_path = get_icon_path()
+    if icon_path:
+        try:
+            root.iconbitmap(icon_path)
+        except Exception:
+            pass
     app = DashboardLauncher(root)
     root.mainloop()
 

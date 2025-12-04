@@ -19,11 +19,11 @@ args = [
     "--name=DashboardEmbargos",  # Nombre del ejecutable
     "--onefile",  # Un solo archivo ejecutable
     "--noconsole",  # Sin consola - la aplicación usa GUI (Tkinter)
-    "--icon=NONE",  # Sin icono personalizado (puedes agregar uno después)
     # Incluir scripts necesarios
     "--add-data=launcher.py;.",  # Incluir el launcher
     "--add-data=dashboard_embargos.py;.",  # Incluir dashboard 1
     "--add-data=dashboard_predicciones.py;.",  # Incluir dashboard 2
+    "--add-data=dashboard_styles.py;.",  # Estilos compartidos
     "--add-data=procesar_modelo.py;.",  # Incluir script de procesamiento del modelo
     "--add-data=utils_csv.py;.",  # Incluir utilidades CSV
     # Imports ocultos necesarios
@@ -50,6 +50,14 @@ args = [
     "--collect-all=openpyxl",  
     "--collect-all=openpyxl",  # Incluir todos los módulos de openpyxl
 ]
+
+icon_file = os.path.join(current_dir, "ob.ico")
+if os.path.exists(icon_file):
+    args.append(f"--icon={icon_file}")
+    args.append(f"--add-data={icon_file};.")
+else:
+    args.append("--icon=NONE")
+    print("[ADVERTENCIA] No se encontro ob.ico. El ejecutable usara el icono por defecto.")
 
 # Agregar DLLs de XGBoost manualmente si es necesario
 try:

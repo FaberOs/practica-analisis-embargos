@@ -180,3 +180,28 @@ def get_csv_path(filename, required=True):
     
     return file_path
 
+
+def get_icon_path(icon_filename="ob.ico"):
+    """Devuelve la ruta completa del icono si existe."""
+    candidates = []
+    if getattr(sys, 'frozen', False):
+        meipass = getattr(sys, '_MEIPASS', None)
+        if meipass:
+            candidates.append(os.path.join(meipass, icon_filename))
+    base_path = get_base_path()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_path = get_data_path()
+    cwd = os.getcwd()
+    for tentative in [
+        os.path.join(base_path, icon_filename) if base_path else None,
+        os.path.join(script_dir, icon_filename) if script_dir else None,
+        os.path.join(data_path, icon_filename) if data_path else None,
+        os.path.join(cwd, icon_filename) if cwd else None,
+    ]:
+        if tentative and tentative not in candidates:
+            candidates.append(tentative)
+    for path in candidates:
+        if path and os.path.exists(path):
+            return os.path.abspath(path)
+    return None
+

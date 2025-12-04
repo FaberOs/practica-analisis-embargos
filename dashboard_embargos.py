@@ -35,7 +35,7 @@ if getattr(sys, 'frozen', False):
         sys.path.insert(0, exe_dir)
 
 try:
-    from utils_csv import get_csv_path, find_csv_file, get_data_path, get_base_path
+    from utils_csv import get_csv_path, find_csv_file, get_data_path, get_base_path, get_icon_path
 except ImportError as e:
     # Fallback si no se puede importar utils_csv
     st.warning(f"No se pudo importar utils_csv: {e}")
@@ -69,6 +69,17 @@ except ImportError as e:
             return os.path.dirname(sys.executable)
         return os.path.dirname(os.path.abspath(__file__))
 
+    def get_icon_path(icon_filename="ob.ico"):
+        tentative = os.path.join(os.path.dirname(os.path.abspath(__file__)), icon_filename)
+        return tentative if os.path.exists(tentative) else None
+
+# Resolver icono para toda la página
+ICON_PATH = None
+try:
+    ICON_PATH = get_icon_path()
+except Exception:
+    ICON_PATH = None
+
 # Importar estilos centralizados
 try:
     from dashboard_styles import get_dashboard_styles, get_sidebar_header
@@ -82,7 +93,7 @@ except ImportError:
 # Configuración de página
 st.set_page_config(
     page_title="Oficios Bancarios",
-    page_icon="📊",
+    page_icon=ICON_PATH if ICON_PATH else "📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
