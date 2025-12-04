@@ -1183,13 +1183,9 @@ elif selected_tab == "Métricas de Clasificación":
     
     # Filtros optimizados con estilo profesional
     st.markdown("""
-    <div style='background: rgba(60, 129, 152, 0.15); 
-                padding: 1.5rem; border-radius: 15px; margin-bottom: 1.5rem; 
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);'>
-        <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;'>
+    <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;'>
             <span style='font-weight: 600; color: #252559; font-size: 1.1rem;'>Filtros de Búsqueda</span>
         </div>
-    </div>
     """, unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)

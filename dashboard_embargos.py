@@ -308,8 +308,11 @@ def calculate_metrics(df: pd.DataFrame) -> Dict:
     
     # Embargos judiciales
     embargos_judiciales = 0
+    embargos_coactivos = 0
     if 'tipo_embargo' in df.columns:
-        embargos_judiciales = int((df['tipo_embargo'].astype(str).str.contains('JUDICIAL', case=False, na=False)).sum())
+        tipo_series = df['tipo_embargo'].astype(str).str.upper()
+        embargos_judiciales = int(tipo_series.str.contains('JUDICIAL', na=False).sum())
+        embargos_coactivos = int(tipo_series.str.contains('COACTIVO', na=False).sum())
     
     return {
         'total': total,
@@ -320,8 +323,26 @@ def calculate_metrics(df: pd.DataFrame) -> Dict:
         'clientes': clientes,
         'porcentaje_clientes': (clientes / total * 100) if total > 0 else 0.0,
         'promedio_oficios_mes': promedio_oficios_mes,
-        'embargos_judiciales': embargos_judiciales
+        'embargos_judiciales': embargos_judiciales,
+        'embargos_coactivos': embargos_coactivos
     }
+
+
+def normalize_tipo_documento_series(series: Optional[pd.Series]) -> pd.Series:
+    """Normaliza los valores de tipo_documento a categorías principales."""
+    if series is None or series.empty:
+        if series is None:
+            return pd.Series(dtype='object')
+        return pd.Series(index=series.index, dtype='object')
+    doc_series = series.astype(str).str.upper().str.strip()
+    normalized = pd.Series('Embargo', index=series.index, dtype='object')
+    mask_desembargo = doc_series.str.contains('DESEM|LEVANT', case=False, na=False)
+    mask_requerimiento = doc_series.str.contains('REQUER', case=False, na=False)
+    mask_no_procesable = doc_series.str.contains('NO', case=False, na=False) & doc_series.str.contains('PROCES', case=False, na=False)
+    normalized[mask_desembargo] = 'Desembargo'
+    normalized[mask_requerimiento] = 'Requerimiento'
+    normalized[mask_no_procesable] = 'No procesable'
+    return normalized
 
 # === FUNCIÓN DE FILTRADO OPTIMIZADA (NUNCA SE CONGELA) ===
 @st.cache_data(show_spinner=False, max_entries=100)
@@ -334,7 +355,9 @@ def apply_filters_fast(df: pd.DataFrame, filtros: Dict, search_term: str = "") -
         mask = pd.Series(True, index=df.index)
         if filtros.get('banco') and isinstance(filtros['banco'], list) and len(filtros['banco']) > 0:
             if 'entidad_bancaria' in df.columns:
-                mask &= df['entidad_bancaria'].isin(filtros['banco'])
+                bancos_sel = [str(b).strip().upper() for b in filtros['banco']]
+                bancos_df = df['entidad_bancaria'].astype(str).str.strip().str.upper()
+                mask &= bancos_df.isin(bancos_sel)
         
         if filtros.get('ciudad') and isinstance(filtros['ciudad'], list) and len(filtros['ciudad']) > 0:
             if 'ciudad' in df.columns:
@@ -375,6 +398,11 @@ def apply_filters_fast(df: pd.DataFrame, filtros: Dict, search_term: str = "") -
                         mask_tipo |= tipos_df.isin(variaciones)
                 
                 mask &= mask_tipo
+
+        if filtros.get('tipo_documento') and isinstance(filtros['tipo_documento'], list) and len(filtros['tipo_documento']) > 0:
+            if 'tipo_documento' in df.columns:
+                doc_normalizado = normalize_tipo_documento_series(df['tipo_documento'])
+                mask &= doc_normalizado.isin(filtros['tipo_documento'])
         
         if filtros.get('mes') and isinstance(filtros['mes'], list) and len(filtros['mes']) > 0:
             if 'mes' in df.columns:
@@ -442,19 +470,9 @@ def main():
     
     # Inicializar filtros vacíos PRIMERO (sin esperar datos)
     # Esto permite que la interfaz se muestre inmediatamente
-    for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes']:
+    for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes', 'filtro_tipo_documento']:
         if key not in st.session_state:
             st.session_state[key] = []
-    
-    # Manejar reset de búsqueda global (debe hacerse antes de crear el widget)
-    if 'reset_search' in st.session_state and st.session_state.reset_search:
-        if 'global_search' in st.session_state:
-            # Eliminar la key para permitir reinicialización
-            del st.session_state.global_search
-        st.session_state.reset_search = False
-    
-    if 'global_search' not in st.session_state:
-        st.session_state.global_search = ""
     
     # Cargar datos de forma lazy (después de mostrar interfaz)
     # NO bloquear la interfaz - cargar en background
@@ -512,28 +530,32 @@ def main():
     # === SECCIÓN DE FILTROS ===
     st.markdown("### Filtros de Búsqueda", unsafe_allow_html=True)
     
-    # Búsqueda global
-    search_term = st.text_input(
-        "Búsqueda global",
-        placeholder="Buscar por banco, ciudad, entidad, nombres, identificación...",
-        key='global_search',
-        help="Busca en múltiples campos del dataset"
-    )
+    # Eliminamos la búsqueda global para simplificar la experiencia de filtros
+    search_term = ""
     
     # Filtros en columnas
     filtros = {}
     col_f1, col_f2, col_f3 = st.columns(3)
-    col_f4, col_f5, col_f6 = st.columns(3)
+    col_f4, col_f5, col_f6, col_f7 = st.columns(4)
     
     with col_f1:
         if not df.empty and 'entidad_bancaria' in df.columns:
             # Obtener opciones de bancos y filtrar valores no bancarios
             bancos_raw = get_options('entidad_bancaria')
-            # Solo incluir los 4 bancos válidos y excluir valores de estado
-            valores_excluir = ['PROCESADO', 'DESEMBARGO', 'CONFIRMADO', 'EMBARGO', 
-                             'Procesado', 'Desembargo', 'Confirmado', 'Embargo',
-                             'procesado', 'desembargo', 'confirmado', 'embargo']
-            bancos = [b for b in bancos_raw if str(b).upper() not in [v.upper() for v in valores_excluir]]
+            bancos_permitidos = ['FALABELLA', 'COLPATRIA', 'COOPCENTRAL', 'SANTANDER']
+            bancos = []
+            for banco in bancos_raw:
+                banco_norm = str(banco).strip().upper()
+                if banco_norm in bancos_permitidos and banco not in bancos:
+                    bancos.append(banco)
+            # Mantener el orden definido por negocios
+            bancos_ordenados = []
+            for permitido in bancos_permitidos:
+                for banco in bancos:
+                    if str(banco).strip().upper() == permitido:
+                        bancos_ordenados.append(banco)
+                        break
+            bancos = bancos_ordenados
             filtros['banco'] = create_multiselect_filter("Entidad Bancaria", bancos, 'filtro_banco', st)
         else:
             filtros['banco'] = []
@@ -625,12 +647,20 @@ def main():
             filtros['mes'] = []
     
     with col_f6:
-        st.markdown("<br>", unsafe_allow_html=True)  # Espacio para alineación
+        if not df.empty and 'tipo_documento' in df.columns:
+            doc_map = normalize_tipo_documento_series(df['tipo_documento'])
+            doc_options = ['Embargo', 'Desembargo', 'Requerimiento', 'No procesable']
+            opciones_disponibles = [opt for opt in doc_options if opt in doc_map.unique().tolist()]
+            filtros['tipo_documento'] = create_multiselect_filter("Tipo de Documento", opciones_disponibles, 'filtro_tipo_documento', st)
+        else:
+            filtros['tipo_documento'] = []
+
+    with col_f7:
+        st.markdown("<br>", unsafe_allow_html=True)  # Espacio para alineación con botones
         if st.button("Resetear Filtros", use_container_width=True, type="secondary"):
-            for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes']:
+            for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes', 'filtro_tipo_documento']:
                 if key in st.session_state:
                     st.session_state[key] = []
-            st.session_state.reset_search = True
             st.rerun()
         
         total_filtros = sum(len(v) for v in filtros.values()) + (1 if search_term else 0)
@@ -664,9 +694,6 @@ def main():
         metrics = calculate_metrics(df_filt)
         # Mostrar mensaje informativo sobre registros encontrados
         total_registros = len(df_filt)
-        # Calcular registros visualizados (máximo 100 en la tabla)
-        registros_visualizados = min(100, total_registros)
-        metrics['registros_visualizados'] = registros_visualizados
         st.success(f"Se encontraron **{total_registros:,}** registros para los filtros actuales.")
     else:
         metrics = {
@@ -679,7 +706,7 @@ def main():
             'porcentaje_clientes': 0.0,
             'promedio_oficios_mes': 0.0,
             'embargos_judiciales': 0,
-            'registros_visualizados': 0
+            'embargos_coactivos': 0
         }
         st.warning("No se encontraron registros para los filtros actuales.")
     
@@ -726,8 +753,8 @@ def main():
                 "bg": color_palette[2]
             },
             {
-                "label": "Registros visualizados",
-                "value": f"{metrics.get('registros_visualizados', min(100, metrics.get('total', 0))):,}",
+                "label": "Clientes con embargo",
+                "value": f"{metrics.get('clientes', 0):,}",
                 "color": "#3c8198",
                 "bg": color_palette[3]
             }
@@ -748,8 +775,8 @@ def main():
                 "bg": color_palette[5]
             },
             {
-                "label": "Oficios activos",
-                "value": f"{metrics['activos']:,}",
+                "label": "Embargos coactivos",
+                "value": f"{metrics.get('embargos_coactivos', 0):,}",
                 "color": "#3c8198",
                 "bg": color_palette[6]
             },

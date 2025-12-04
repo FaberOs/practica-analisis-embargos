@@ -2,16 +2,69 @@
 Script para procesar el CSV original de la BD y generar todos los archivos necesarios
 para los dashboards (consolidado, predicciones y clasificaciones)
 """
-import pandas as pd
-import numpy as np
+import argparse
 import csv
 import os
 import sys
+from dataclasses import dataclass
+from typing import Optional
+
+import pandas as pd
+import numpy as np
 from xgboost import XGBRegressor, XGBClassifier
 from sklearn.metrics import mean_squared_error, mean_absolute_error, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import json
+
+Z_VALUE = 1.96
+MIN_CLASS_SAMPLES = 5
+
+
+@dataclass
+class SamplingConfig:
+    """Configura cómo se realiza el muestreo mensual del consolidado."""
+    frac: float = 1.0
+    n_per_month: Optional[int] = None
+    random_state: int = 42
+
+
+@dataclass
+class ForecastConfig:
+    """Parámetros para la generación de pronósticos."""
+    horizon: int = 12
+
+
+def _confidence_label(horizonte: int) -> str:
+    if horizonte <= 3:
+        return "Alta"
+    if horizonte <= 6:
+        return "Media"
+    return "Baja"
+
+
+def _compute_interval(residual_scale: float, horizonte: int) -> float:
+    base = residual_scale if residual_scale > 0 else 1.0
+    return Z_VALUE * base * np.sqrt(max(1, horizonte))
+
+
+def _ensure_month_continuity(df: pd.DataFrame) -> pd.DataFrame:
+    """Garantiza que la serie mensual no tenga huecos."""
+    if df.empty:
+        return df
+    df = df.sort_values(['año', 'mes_num']).copy()
+    fecha = pd.to_datetime({'year': df['año'], 'month': df['mes_num'], 'day': 1})
+    df['fecha'] = fecha
+    full_range = pd.date_range(fecha.min(), fecha.max(), freq='MS')
+    df = df.set_index('fecha').reindex(full_range)
+    df['año'] = df.index.year
+    df['mes_num'] = df.index.month
+    for col in ['id', 'identificacion', 'montoaembargar']:
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+    df = df.reset_index().rename(columns={'index': 'fecha'})
+    df['mes_label'] = df['año'].astype(str) + "-" + df['mes_num'].astype(str).str.zfill(2)
+    return df
 
 # Configurar codificación UTF-8 para Windows
 if sys.platform == 'win32':
@@ -25,17 +78,19 @@ if sys.platform == 'win32':
         # Si falla, continuar sin cambios (los mensajes ya no usan emojis)
         pass
 
-def procesar_csv_original(csv_files, output_dir=None):
+def procesar_csv_original(csv_files, output_dir=None, sampling_cfg: Optional[SamplingConfig] = None):
     """
     Procesa los archivos CSV originales de la BD y genera el consolidado
     
     Args:
         csv_files: Lista de rutas a los archivos CSV originales
         output_dir: Directorio donde guardar los archivos generados (None = directorio actual)
+        sampling_cfg: Configuración de muestreo mensual
     
     Returns:
         str: Ruta al archivo consolidado generado
     """
+    sampling_cfg = sampling_cfg or SamplingConfig()
     if output_dir is None:
         output_dir = os.getcwd()
     else:
@@ -132,11 +187,22 @@ def procesar_csv_original(csv_files, output_dir=None):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce')
     
-    # Muestra por mes (7% de los datos)
-    frac_muestra = 0.07
-    df_muestreado = df.groupby('mes', group_keys=False).apply(
-        lambda x: x.sample(frac=frac_muestra, random_state=42)
-    ).reset_index(drop=True)
+    apply_sampling = (sampling_cfg.n_per_month is not None) or (sampling_cfg.frac < 0.9999)
+    if apply_sampling:
+        print(f"[INFO] Aplicando muestreo mensual (frac={sampling_cfg.frac}, n={sampling_cfg.n_per_month})")
+
+        def _sampler(group: pd.DataFrame) -> pd.DataFrame:
+            if sampling_cfg.n_per_month is not None:
+                n_rows = min(sampling_cfg.n_per_month, len(group))
+                return group.sample(n=n_rows, random_state=sampling_cfg.random_state)
+            frac = min(max(sampling_cfg.frac, 0.0), 1.0)
+            if frac == 0:
+                return group.head(0)
+            return group.sample(frac=frac, random_state=sampling_cfg.random_state)
+
+        df_muestreado = df.groupby('mes', group_keys=False).apply(_sampler).reset_index(drop=True)
+    else:
+        df_muestreado = df.reset_index(drop=True).copy()
     
     # Guarda resultado consolidado
     output_file = os.path.join(output_dir, "embargos_consolidado_mensual.csv")
@@ -148,7 +214,7 @@ def procesar_csv_original(csv_files, output_dir=None):
     
     return output_file
 
-def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
+def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, horizonte=12):
     """
     Entrena los modelos y genera los archivos de predicciones y clasificaciones
     
@@ -215,6 +281,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         'identificacion': pd.Series.nunique,
         'montoaembargar': 'sum'
     }).reset_index().sort_values(['año', 'mes_num'])
+    oficios_por_mes = _ensure_month_continuity(oficios_por_mes)
     
     oficios_por_mes['oficios_lag1'] = oficios_por_mes['id'].shift(1)
     oficios_por_mes['oficios_lag2'] = oficios_por_mes['id'].shift(2)
@@ -222,6 +289,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
     oficios_por_mes['oficios_ma3'] = oficios_por_mes['id'].rolling(window=3).mean().shift(1)
     oficios_por_mes['demandados_lag1'] = oficios_por_mes['identificacion'].shift(1)
     oficios_por_mes['demandados_lag2'] = oficios_por_mes['identificacion'].shift(2)
+    oficios_por_mes['demandados_lag3'] = oficios_por_mes['identificacion'].shift(3)
     oficios_por_mes['demandados_ma3'] = oficios_por_mes['identificacion'].rolling(window=3).mean().shift(1)
     oficios_por_mes['mes_sin'] = np.sin(2 * np.pi * oficios_por_mes['mes_num'] / 12.0)
     oficios_por_mes['mes_cos'] = np.cos(2 * np.pi * oficios_por_mes['mes_num'] / 12.0)
@@ -235,6 +303,8 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         print("[ADVERTENCIA] No hay suficientes datos para entrenar los modelos (se necesita al menos 2 años)")
         return
     
+    forecast_cfg = ForecastConfig(horizon=horizonte)
+
     # REGRESIÓN: Oficios por mes
     print("\n[INFO] Entrenando modelo de regresión: Oficios por mes...")
     features_reg = ['año', 'mes_num', 'mes_sin', 'mes_cos', 'oficios_lag1', 'oficios_lag2', 'oficios_lag3', 'oficios_ma3']
@@ -259,13 +329,19 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         
         rmse = np.sqrt(mean_squared_error(y_test_clean, y_pred))
         mae = mean_absolute_error(y_test_clean, y_pred)
+        residuals = y_test_clean.values - y_pred
+        residual_std = np.std(residuals) if len(residuals) > 1 else 0.0
+        interval_scale = residual_std if residual_std > 0 else mae
         print(f"   RMSE: {rmse:.2f}, MAE: {mae:.2f}")
         
         # Guardar predicciones de validación histórica de oficios
         df_pred_oficios = test.iloc[mask_test.values][['año', 'mes_num']].copy()
         df_pred_oficios['real_oficios'] = y_test_clean.values
         df_pred_oficios['pred_oficios'] = y_pred
-        df_pred_oficios['mes'] = df_pred_oficios['año'].astype(str) + "-" + df_pred_oficios['mes_num'].astype(str).str.zfill(2)
+        if 'mes_label' in df_pred_oficios.columns:
+            df_pred_oficios['mes'] = df_pred_oficios['mes_label']
+        else:
+            df_pred_oficios['mes'] = df_pred_oficios['año'].astype(str) + "-" + df_pred_oficios['mes_num'].astype(str).str.zfill(2)
         output_file = os.path.join(output_dir, "predicciones_oficios_validacion.csv")
         df_pred_oficios[['mes', 'real_oficios', 'pred_oficios']].to_csv(output_file, index=False)
         print(f"   [OK] Generado: {output_file}")
@@ -290,6 +366,8 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
             )
             regressor_futuro.fit(X_full_clean, y_full_clean)
             print(f"   Modelo entrenado con {len(X_full_clean)} registros históricos")
+
+            residual_scale = interval_scale if interval_scale > 0 else max(1.0, np.std(y_full_clean))
             
             # Obtener últimos valores para lags
             ultimo_registro = oficios_por_mes.iloc[-1]
@@ -306,7 +384,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
             # Predicción recursiva para 12 meses
             predicciones_futuras = []
             
-            for horizonte in range(1, 13):  # 1 a 12 meses
+            for horizonte in range(1, forecast_cfg.horizon + 1):
                 # Calcular fecha del mes a predecir
                 mes_futuro = ultimo_mes + horizonte
                 año_futuro = ultimo_año
@@ -334,21 +412,12 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
                 pred_oficios = regressor_futuro.predict(X_futuro)[0]
                 pred_oficios = max(0, pred_oficios)  # No permitir valores negativos
                 
-                # Calcular intervalos de confianza basados en MAE histórico
-                # Confianza degrada 10% por cada mes de horizonte
-                factor_confianza = 1 + (horizonte - 1) * 0.1
-                intervalo = mae * factor_confianza
+                intervalo = _compute_interval(residual_scale, horizonte)
                 
                 limite_inferior = max(0, pred_oficios - intervalo)
                 limite_superior = pred_oficios + intervalo
                 
-                # Clasificar confianza
-                if horizonte <= 3:
-                    nivel_confianza = "Alta"
-                elif horizonte <= 6:
-                    nivel_confianza = "Media"
-                else:
-                    nivel_confianza = "Baja"
+                nivel_confianza = _confidence_label(horizonte)
                 
                 # Guardar predicción
                 mes_str = f"{año_futuro}-{str(mes_futuro).zfill(2)}"
@@ -397,7 +466,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
     
     # REGRESIÓN: Demandados por mes
     print("\n[INFO] Entrenando modelo de regresión: Demandados únicos por mes...")
-    features_dem = ['año', 'mes_num', 'mes_sin', 'mes_cos', 'demandados_lag1', 'demandados_lag2', 'demandados_ma3']
+    features_dem = ['año', 'mes_num', 'mes_sin', 'mes_cos', 'demandados_lag1', 'demandados_lag2', 'demandados_lag3', 'demandados_ma3']
     X_train_d = train[features_dem]
     y_train_d = train['identificacion']
     X_test_d = test[features_dem]
@@ -419,13 +488,19 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         
         rmse = np.sqrt(mean_squared_error(y_test_d_clean, y_pred_d))
         mae = mean_absolute_error(y_test_d_clean, y_pred_d)
+        residuals_d = y_test_d_clean.values - y_pred_d
+        residual_std_d = np.std(residuals_d) if len(residuals_d) > 1 else 0.0
+        interval_scale_d = residual_std_d if residual_std_d > 0 else mae
         print(f"   RMSE: {rmse:.2f}, MAE: {mae:.2f}")
         
         # Guardar predicciones de validación histórica de demandados
         df_pred_demandados = test.iloc[mask_test_d.values][['año', 'mes_num']].copy()
         df_pred_demandados['real_demandados'] = y_test_d_clean.values
         df_pred_demandados['pred_demandados'] = y_pred_d
-        df_pred_demandados['mes'] = df_pred_demandados['año'].astype(str) + "-" + df_pred_demandados['mes_num'].astype(str).str.zfill(2)
+        if 'mes_label' in df_pred_demandados.columns:
+            df_pred_demandados['mes'] = df_pred_demandados['mes_label']
+        else:
+            df_pred_demandados['mes'] = df_pred_demandados['año'].astype(str) + "-" + df_pred_demandados['mes_num'].astype(str).str.zfill(2)
         output_file = os.path.join(output_dir, "predicciones_demandados_validacion.csv")
         df_pred_demandados[['mes', 'real_demandados', 'pred_demandados']].to_csv(output_file, index=False)
         print(f"   [OK] Generado: {output_file}")
@@ -450,6 +525,8 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
             )
             regressor_dem_futuro.fit(X_full_d_clean, y_full_d_clean)
             print(f"   Modelo entrenado con {len(X_full_d_clean)} registros históricos")
+
+            residual_scale_d = interval_scale_d if interval_scale_d > 0 else max(1.0, np.std(y_full_d_clean))
             
             # Obtener últimos valores para lags
             ultimo_registro = oficios_por_mes.iloc[-1]
@@ -466,7 +543,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
             # Predicción recursiva para 12 meses
             predicciones_futuras_dem = []
             
-            for horizonte in range(1, 13):  # 1 a 12 meses
+            for horizonte in range(1, forecast_cfg.horizon + 1):
                 # Calcular fecha del mes a predecir
                 mes_futuro = ultimo_mes + horizonte
                 año_futuro = ultimo_año
@@ -486,6 +563,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
                     'mes_cos': [mes_cos],
                     'demandados_lag1': [demandados_lag1],
                     'demandados_lag2': [demandados_lag2],
+                    'demandados_lag3': [demandados_lag3],
                     'demandados_ma3': [demandados_ma3]
                 })
                 
@@ -493,21 +571,12 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
                 pred_demandados = regressor_dem_futuro.predict(X_futuro_d)[0]
                 pred_demandados = max(0, pred_demandados)  # No permitir valores negativos
                 
-                # Calcular intervalos de confianza basados en MAE histórico
-                # Confianza degrada 10% por cada mes de horizonte
-                factor_confianza = 1 + (horizonte - 1) * 0.1
-                intervalo = mae * factor_confianza
+                intervalo = _compute_interval(residual_scale_d, horizonte)
                 
                 limite_inferior = max(0, pred_demandados - intervalo)
                 limite_superior = pred_demandados + intervalo
                 
-                # Clasificar confianza
-                if horizonte <= 3:
-                    nivel_confianza = "Alta"
-                elif horizonte <= 6:
-                    nivel_confianza = "Media"
-                else:
-                    nivel_confianza = "Baja"
+                nivel_confianza = _confidence_label(horizonte)
                 
                 # Guardar predicción
                 mes_str = f"{año_futuro}-{str(mes_futuro).zfill(2)}"
@@ -521,6 +590,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
                 })
                 
                 # Actualizar lags para siguiente iteración (predicción recursiva)
+                demandados_lag3 = demandados_lag2
                 demandados_lag3 = demandados_lag2
                 demandados_lag2 = demandados_lag1
                 demandados_lag1 = pred_demandados
@@ -589,62 +659,85 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         
         return df_metrics
     
+    def prepare_multiclass_dataset(feature_cols, target_col, encoder, min_samples=MIN_CLASS_SAMPLES):
+        """Filtra clases poco representadas y re-encodea etiquetas para evitar errores."""
+        target_series = df[target_col].copy()
+        counts = target_series.value_counts()
+        valid_codes = counts[counts >= min_samples].index.tolist()
+        if len(valid_codes) < 2:
+            return None
+        mask = target_series.isin(valid_codes)
+        X_local = df.loc[mask, feature_cols].copy()
+        y_codes = target_series[mask].copy()
+        labels_text = encoder.inverse_transform(y_codes.to_numpy())
+        subset_encoder = LabelEncoder()
+        y_encoded = subset_encoder.fit_transform(labels_text)
+        label_names = subset_encoder.classes_.tolist()
+        return X_local, y_encoded, label_names
+    
     dfs_clasificaciones = []
     
     # 1. Tipo Embargo
-    try:
-        X = df[features_clf]
-        y = df['tipo_embargo_enc']
-        X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.2, random_state=42)
-        clf = XGBClassifier(n_estimators=100, max_depth=7, learning_rate=0.1,
-                           subsample=0.9, colsample_bytree=0.8,
-                           eval_metric='mlogloss', use_label_encoder=False,
-                           tree_method="hist")
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
-        labels_report = np.unique(np.concatenate([y_test, y_pred]))
-        target_names = le_tipo_embargo.inverse_transform(labels_report)
-        # Obtener todas las clases para la matriz
-        all_classes = le_tipo_embargo.classes_
-        report = classification_report(y_test, y_pred, output_dict=True,
-                                      target_names=target_names, zero_division=0)
-        dfs_clasificaciones.append(report_to_df(report, "Tipo Embargo", target_names, y_test, y_pred, all_classes.tolist()))
-        print("   [OK] Modelo: Tipo Embargo")
-    except Exception as e:
-        print(f"   [ADVERTENCIA] Error en Tipo Embargo: {e}")
+    tipo_dataset = prepare_multiclass_dataset(features_clf, 'tipo_embargo_enc', le_tipo_embargo)
+    if tipo_dataset is None:
+        print(f"   [ADVERTENCIA] Tipo Embargo: no hay suficientes clases con al menos {MIN_CLASS_SAMPLES} registros.")
+    else:
+        try:
+            X_tipo, y_tipo, tipo_labels = tipo_dataset
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_tipo, y_tipo, stratify=y_tipo, test_size=0.2, random_state=42
+            )
+            clf = XGBClassifier(
+                n_estimators=100, max_depth=7, learning_rate=0.1,
+                subsample=0.9, colsample_bytree=0.8,
+                eval_metric='mlogloss', use_label_encoder=False,
+                tree_method="hist"
+            )
+            clf.fit(X_train, y_train)
+            y_pred = clf.predict(X_test)
+            report = classification_report(
+                y_test, y_pred, output_dict=True,
+                target_names=tipo_labels, zero_division=0
+            )
+            dfs_clasificaciones.append(
+                report_to_df(report, "Tipo Embargo", tipo_labels, y_test, y_pred, tipo_labels)
+            )
+            print("   [OK] Modelo: Tipo Embargo")
+        except Exception as e:
+            print(f"   [ADVERTENCIA] Error en Tipo Embargo: {e}")
     
     # 2. Estado Embargo
-    try:
-        features_clf2 = [
-            'entidad_remitente_enc', 'mes_num', 'montoaembargar',
-            'tipo_embargo_enc', 'es_cliente_bin'
-        ]
-        y2 = df['estado_embargo_enc']
-        class_counts = y2.value_counts()
-        clases_validas = class_counts[class_counts >= 2].index
-        mask_validas = y2.isin(clases_validas)
-        X2_valid = df[features_clf2][mask_validas]
-        y2_valid = y2[mask_validas]
-        
-        if len(X2_valid) > 0:
+    features_clf2 = [
+        'entidad_remitente_enc', 'mes_num', 'montoaembargar',
+        'tipo_embargo_enc', 'es_cliente_bin'
+    ]
+    estado_dataset = prepare_multiclass_dataset(features_clf2, 'estado_embargo_enc', le_estado_embargo)
+    if estado_dataset is None:
+        print(f"   [ADVERTENCIA] Estado Embargo: no hay suficientes clases con al menos {MIN_CLASS_SAMPLES} registros.")
+    else:
+        try:
+            X_estado, y_estado, estado_labels = estado_dataset
             X_train2, X_test2, y_train2, y_test2 = train_test_split(
-                X2_valid, y2_valid, stratify=y2_valid, test_size=0.2, random_state=42)
-            clf2 = XGBClassifier(n_estimators=100, max_depth=7, learning_rate=0.1,
-                                subsample=0.9, colsample_bytree=0.8,
-                                eval_metric='mlogloss', use_label_encoder=False,
-                                tree_method="hist")
+                X_estado, y_estado, stratify=y_estado, test_size=0.2, random_state=42
+            )
+            clf2 = XGBClassifier(
+                n_estimators=100, max_depth=7, learning_rate=0.1,
+                subsample=0.9, colsample_bytree=0.8,
+                eval_metric='mlogloss', use_label_encoder=False,
+                tree_method="hist"
+            )
             clf2.fit(X_train2, y_train2)
             y_pred2 = clf2.predict(X_test2)
-            labels_report2 = np.unique(np.concatenate([y_test2, y_pred2]))
-            target_names2 = le_estado_embargo.inverse_transform(labels_report2)
-            # Obtener todas las clases para la matriz
-            all_classes2 = le_estado_embargo.classes_
-            report2 = classification_report(y_test2, y_pred2, output_dict=True,
-                                           target_names=target_names2, zero_division=0)
-            dfs_clasificaciones.append(report_to_df(report2, "Estado Embargo", target_names2, y_test2, y_pred2, all_classes2.tolist()))
+            report2 = classification_report(
+                y_test2, y_pred2, output_dict=True,
+                target_names=estado_labels, zero_division=0
+            )
+            dfs_clasificaciones.append(
+                report_to_df(report2, "Estado Embargo", estado_labels, y_test2, y_pred2, estado_labels)
+            )
             print("   [OK] Modelo: Estado Embargo")
-    except Exception as e:
-        print(f"   [ADVERTENCIA] Error en Estado Embargo: {e}")
+        except Exception as e:
+            print(f"   [ADVERTENCIA] Error en Estado Embargo: {e}")
     
     # 3. Cliente/No Cliente
     try:
@@ -683,27 +776,50 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
     print("[OK] PROCESAMIENTO COMPLETADO")
     print("="*60)
 
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Procesa los CSV de embargos y genera archivos para los dashboards"
+    )
+    parser.add_argument("csv_files", nargs="+", help="Rutas a los archivos CSV originales")
+    parser.add_argument("--output-dir", dest="output_dir", default=None,
+                        help="Directorio donde guardar los resultados (default: carpeta de datos del usuario if disponible)")
+    parser.add_argument("--frac-muestra", dest="frac_muestra", type=float, default=1.0,
+                        help="Fracción mensual a muestrear (1.0 = usa todos los registros)")
+    parser.add_argument("--n-muestra", dest="n_muestra", type=int, default=None,
+                        help="Número máximo de filas por mes (se usa antes que frac si se especifica)")
+    parser.add_argument("--horizonte", dest="horizonte", type=int, default=12,
+                        help="Meses futuros a pronosticar")
+    parser.add_argument("--random-state", dest="random_state", type=int, default=42,
+                        help="Semilla para operaciones aleatorias (muestreo)")
+    return parser.parse_args()
+
 def main():
     """Función principal"""
-    if len(sys.argv) < 2:
-        print("Uso: python procesar_modelo.py <csv1> [csv2] [csv3] ...")
-        print("Ejemplo: python procesar_modelo.py 'consulta detalle embargos-2023-01.csv' 'consulta detalle embargos-2024-01.csv'")
-        sys.exit(1)
-    
-    csv_files = sys.argv[1:]
-    
+    args = parse_arguments()
+    csv_files = args.csv_files
+
     # Verificar que los archivos existan
     for csv_file in csv_files:
         if not os.path.exists(csv_file):
             print(f"[ERROR] No se encontro el archivo: {csv_file}")
             sys.exit(1)
-    
-    # Obtener directorio de salida (carpeta de datos del usuario o directorio actual)
-    try:
-        from utils_csv import get_data_path
-        output_dir = get_data_path()
-    except:
-        output_dir = os.getcwd()
+
+    # Obtener directorio de salida
+    output_dir = args.output_dir
+    if output_dir is None:
+        try:
+            from utils_csv import get_data_path
+            output_dir = get_data_path()
+        except Exception:
+            output_dir = os.getcwd()
+    os.makedirs(output_dir, exist_ok=True)
+
+    sampling_cfg = SamplingConfig(
+        frac=args.frac_muestra if args.frac_muestra is not None else 1.0,
+        n_per_month=args.n_muestra,
+        random_state=args.random_state
+    )
     
     print("="*60)
     print("PROCESANDO ARCHIVOS CSV DE LA BASE DE DATOS")
@@ -716,10 +832,10 @@ def main():
     
     try:
         # Paso 1: Procesar y consolidar
-        consolidado_path = procesar_csv_original(csv_files, output_dir)
+        consolidado_path = procesar_csv_original(csv_files, output_dir, sampling_cfg)
         
         # Paso 2: Entrenar modelos y generar predicciones
-        entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir)
+        entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir, horizonte=args.horizonte)
         
         print(f"\n[OK] Todos los archivos han sido generados en: {output_dir}")
         

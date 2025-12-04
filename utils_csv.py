@@ -5,6 +5,8 @@ Permite agregar CSV después de la instalación
 import os
 import sys
 
+CSV_DEBUG = os.getenv("CSV_DEBUG_FILES", "").strip().lower() in {"1", "true", "yes", "on"}
+
 def get_base_path():
     """Obtiene la ruta base donde buscar archivos"""
     if getattr(sys, 'frozen', False):
@@ -126,7 +128,7 @@ def find_csv_file(filename):
     
     # No se encontró - para depuración, podemos imprimir las rutas buscadas
     # (solo en modo desarrollo, no en producción)
-    if not getattr(sys, 'frozen', False):
+    if CSV_DEBUG:
         print(f"[DEBUG] Archivo '{filename}' no encontrado en las siguientes ubicaciones:")
         for path in search_paths:
             if path:
@@ -167,10 +169,12 @@ def get_csv_path(filename, required=True):
    3. O crea una carpeta 'datos' en la carpeta de instalación y coloca el archivo ahí
 
 📝 Archivos CSV necesarios:
-   - embargos_consolidado_mensual.csv
-   - predicciones_oficios_por_mes.csv
-   - predicciones_demandados_por_mes.csv
-   - resultados_clasificaciones.csv
+    - embargos_consolidado_mensual.csv
+    - predicciones_oficios_validacion.csv
+    - predicciones_oficios_futuro.csv
+    - predicciones_demandados_validacion.csv
+    - predicciones_demandados_futuro.csv
+    - resultados_clasificaciones.csv
 """
         raise FileNotFoundError(error_msg)
     

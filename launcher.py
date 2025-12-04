@@ -58,8 +58,24 @@ def validate_csv_file(csv_path, csv_name, show_warning=True):
     # Definir columnas esperadas para cada CSV
     expected_columns = {
         "embargos_consolidado_mensual.csv": ["mes"],
-        "predicciones_oficios_por_mes.csv": ["mes", "real_oficios", "pred_oficios"],
-        "predicciones_demandados_por_mes.csv": ["mes", "real_demandados", "pred_demandados"],
+        "predicciones_oficios_validacion.csv": ["mes", "real_oficios", "pred_oficios"],
+        "predicciones_demandados_validacion.csv": ["mes", "real_demandados", "pred_demandados"],
+        "predicciones_oficios_futuro.csv": [
+            "mes",
+            "pred_oficios",
+            "limite_inferior",
+            "limite_superior",
+            "nivel_confianza",
+            "horizonte_meses"
+        ],
+        "predicciones_demandados_futuro.csv": [
+            "mes",
+            "pred_demandados",
+            "limite_inferior",
+            "limite_superior",
+            "nivel_confianza",
+            "horizonte_meses"
+        ],
         "resultados_clasificaciones.csv": ["modelo", "clase"]
     }
     
@@ -522,14 +538,26 @@ class DashboardLauncher:
                 "var": tk.BooleanVar(),
                 "checkbox": None
             },
-            "predicciones_oficios_por_mes.csv": {
-                "label": "predicciones_oficios_por_mes.csv",
+            "predicciones_oficios_validacion.csv": {
+                "label": "predicciones_oficios_validacion.csv",
                 "dashboard": "Dashboard de Predicciones",
                 "var": tk.BooleanVar(),
                 "checkbox": None
             },
-            "predicciones_demandados_por_mes.csv": {
-                "label": "predicciones_demandados_por_mes.csv",
+            "predicciones_oficios_futuro.csv": {
+                "label": "predicciones_oficios_futuro.csv",
+                "dashboard": "Dashboard de Predicciones",
+                "var": tk.BooleanVar(),
+                "checkbox": None
+            },
+            "predicciones_demandados_validacion.csv": {
+                "label": "predicciones_demandados_validacion.csv",
+                "dashboard": "Dashboard de Predicciones",
+                "var": tk.BooleanVar(),
+                "checkbox": None
+            },
+            "predicciones_demandados_futuro.csv": {
+                "label": "predicciones_demandados_futuro.csv",
                 "dashboard": "Dashboard de Predicciones",
                 "var": tk.BooleanVar(),
                 "checkbox": None
@@ -550,8 +578,9 @@ class DashboardLauncher:
         col2_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         
         files_list = list(self.file_status.items())
+        split_index = (len(files_list) + 1) // 2
         for idx, (filename, info) in enumerate(files_list):
-            frame = col1_frame if idx < 2 else col2_frame
+            frame = col1_frame if idx < split_index else col2_frame
             
             # Checkbox con estilo personalizado
             checkbox = tk.Checkbutton(
@@ -783,10 +812,12 @@ Si ya tienes archivos CSV con datos de embargos pero con nombres diferentes:
 2. Limpia y normaliza los datos
 3. Entrena modelos de Machine Learning (XGBoost)
 4. Genera automáticamente los siguientes archivos:
-   • embargos_consolidado_mensual.csv
-   • predicciones_oficios_por_mes.csv
-   • predicciones_demandados_por_mes.csv
-   • resultados_clasificaciones.csv
+    • embargos_consolidado_mensual.csv
+    • predicciones_oficios_validacion.csv
+    • predicciones_oficios_futuro.csv
+    • predicciones_demandados_validacion.csv
+    • predicciones_demandados_futuro.csv
+    • resultados_clasificaciones.csv
 
 5. Los dashboards usan estos archivos generados automáticamente
 
@@ -899,8 +930,10 @@ contacta al administrador de la Base de Datos o al equipo técnico.
             "¿Estás seguro de que deseas recalcular todos los archivos?\n\n"
             "Esto sobrescribirá los archivos existentes:\n"
             "  • embargos_consolidado_mensual.csv\n"
-            "  • predicciones_oficios_por_mes.csv\n"
-            "  • predicciones_demandados_por_mes.csv\n"
+            "  • predicciones_oficios_validacion.csv\n"
+            "  • predicciones_oficios_futuro.csv\n"
+            "  • predicciones_demandados_validacion.csv\n"
+            "  • predicciones_demandados_futuro.csv\n"
             "  • resultados_clasificaciones.csv\n\n"
             "El proceso puede tardar varios minutos."
         )
@@ -1386,17 +1419,15 @@ contacta al administrador de la Base de Datos o al equipo técnico.
         
         # Verificar si hay archivos generados, si no, ejecutar procesamiento
         data_path = get_data_path()
-        predicciones_oficios = os.path.join(data_path, "predicciones_oficios_por_mes.csv")
-        predicciones_demandados = os.path.join(data_path, "predicciones_demandados_por_mes.csv")
-        resultados_clasificaciones = os.path.join(data_path, "resultados_clasificaciones.csv")
+        required_files = [
+            "predicciones_oficios_validacion.csv",
+            "predicciones_oficios_futuro.csv",
+            "predicciones_demandados_validacion.csv",
+            "predicciones_demandados_futuro.csv",
+            "resultados_clasificaciones.csv"
+        ]
         
-        missing_files = []
-        if not os.path.exists(predicciones_oficios):
-            missing_files.append("predicciones_oficios_por_mes.csv")
-        if not os.path.exists(predicciones_demandados):
-            missing_files.append("predicciones_demandados_por_mes.csv")
-        if not os.path.exists(resultados_clasificaciones):
-            missing_files.append("resultados_clasificaciones.csv")
+        missing_files = [fname for fname in required_files if not os.path.exists(os.path.join(data_path, fname))]
         
         if missing_files:
             if not self.csv_originales:
@@ -1423,8 +1454,10 @@ contacta al administrador de la Base de Datos o al equipo técnico.
         # Buscar los archivos generados
         csv_files = {}
         archivos_requeridos = [
-            "predicciones_oficios_por_mes.csv",
-            "predicciones_demandados_por_mes.csv",
+            "predicciones_oficios_validacion.csv",
+            "predicciones_oficios_futuro.csv",
+            "predicciones_demandados_validacion.csv",
+            "predicciones_demandados_futuro.csv",
             "resultados_clasificaciones.csv"
         ]
         
