@@ -69,234 +69,26 @@ except ImportError as e:
             return os.path.dirname(sys.executable)
         return os.path.dirname(os.path.abspath(__file__))
 
+# Importar estilos centralizados
+try:
+    from dashboard_styles import get_dashboard_styles, get_sidebar_header
+except ImportError:
+    # Fallback si no se puede importar
+    def get_dashboard_styles():
+        return "<style></style>"
+    def get_sidebar_header(title_line1, title_line2):
+        return f"<div><h1>{title_line1} {title_line2}</h1></div>"
+
 # Configuración de página
 st.set_page_config(
-    page_title="Embargos Analytics",
-    page_icon=None,
+    page_title="Oficios Bancarios",
+    page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # === ESTILOS CSS PERSONALIZADOS ===
-st.markdown("""
-<style>
-    /* Header principal profesional */
-    .main-header {
-        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-        padding: 2.5rem 2rem;
-        border-radius: 12px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
-    }
-    .main-header h1 {
-        font-size: 2.2rem;
-        margin-bottom: 0.5rem;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-    }
-    .main-header p {
-        font-size: 1rem;
-        opacity: 0.9;
-        font-weight: 400;
-    }
-    
-    /* Cards de métricas mejoradas */
-    .metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-        border-left: 5px solid;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    .metric-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #1e3a8a, #3b82f6);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 24px rgba(0,0,0,0.15);
-    }
-    .metric-card:hover::before {
-        transform: scaleX(1);
-    }
-    
-    /* Métricas con gradientes - Paleta profesional azul/gris */
-    .metric-card-1 { border-left-color: #1e3a8a; }
-    .metric-card-2 { border-left-color: #3b82f6; }
-    .metric-card-3 { border-left-color: #60a5fa; }
-    .metric-card-4 { border-left-color: #93c5fd; }
-    .metric-card-5 { border-left-color: #64748b; }
-    
-    /* Styling para st.metric */
-    [data-testid="stMetricValue"] {
-        font-size: 2rem !important;
-        font-weight: bold !important;
-        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 1rem !important;
-        color: #4a5568 !important;
-        font-weight: 600 !important;
-    }
-    
-    /* Secciones de contenido */
-    .content-section {
-        background: white;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 2rem;
-        border: 1px solid #e2e8f0;
-    }
-    .section-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #1e3a8a;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    
-    /* Tabs mejorados */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        background-color: #f1f5f9;
-        padding: 6px;
-        border-radius: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-weight: 500;
-        color: #64748b;
-        transition: all 0.2s;
-    }
-    .stTabs [aria-selected="true"] {
-        background: #1e3a8a;
-        color: white;
-        font-weight: 600;
-    }
-    
-    /* Filtros */
-    .filter-chip {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem;
-        background: #f0f2f6;
-        border-radius: 20px;
-        border: 1px solid #d1d5db;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
-    .filter-chip:hover {
-        background: #3b82f6;
-        color: white;
-        transform: scale(1.05);
-    }
-    .filter-chip.active {
-        background: #1e3a8a;
-        color: white;
-        border-color: #1e3a8a;
-        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.4);
-    }
-    .filter-section {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .filter-title {
-        font-size: 1.1rem;
-        font-weight: bold;
-        color: #2d3748;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .toggle-button {
-        background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 25px;
-        padding: 0.5rem 1.5rem;
-        margin: 0.25rem;
-        cursor: pointer;
-        transition: all 0.3s;
-        font-size: 0.9rem;
-        color: #4a5568;
-    }
-    .toggle-button:hover {
-        border-color: #3b82f6;
-        color: #3b82f6;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
-    }
-    .toggle-button.active {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        color: white;
-        border-color: transparent;
-        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
-    }
-    .filter-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.4rem 0.8rem;
-        margin: 0.2rem;
-        background: #edf2f7;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        color: #2d3748;
-        border: 1px solid #cbd5e0;
-    }
-    .filter-badge.active {
-        background: #1e3a8a;
-        color: white;
-        border-color: #1e3a8a;
-    }
-    
-    /* Animaciones suaves */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .fade-in {
-        animation: fadeIn 0.6s ease-out;
-    }
-    
-    /* Mejoras generales */
-    .main .block-container {
-        padding-top: 3rem;
-        padding-bottom: 3rem;
-    }
-    
-    /* Cards de gráficos */
-    .chart-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 1.5rem;
-        border: 1px solid #e2e8f0;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown(get_dashboard_styles(), unsafe_allow_html=True)
 
 # === CARGA DE DATOS OPTIMIZADA ===
 @st.cache_data(show_spinner="Cargando datos...", ttl=86400)
@@ -612,22 +404,41 @@ def apply_filters_fast(df: pd.DataFrame, filtros: Dict, search_term: str = "") -
 
 # === INTERFAZ PRINCIPAL ===
 def main():
-    # Header personalizado (mostrar primero, sin esperar datos)
-    st.markdown("""
-    <div class="main-header">
-        <h1>Embargos Analytics</h1>
-        <p>Plataforma de análisis inteligente de embargos bancarios</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Botón para limpiar cache y recargar datos (en sidebar colapsado)
+    # Sidebar con título y navegación
     with st.sidebar:
+        st.markdown(get_sidebar_header("OFICIOS", "BANCARIOS"), unsafe_allow_html=True)
+        st.markdown("""<p style='color: white; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1rem;'>ANÁLISIS DE EMBARGOS</p>""", unsafe_allow_html=True)
+        
+        # Navegación personalizada sin radio buttons
+        if 'selected_tab' not in st.session_state:
+            st.session_state.selected_tab = "Dashboard Principal"
+        
+        # Crear botones personalizados para navegación
+        if st.button("Dashboard Principal", key="nav_dashboard", use_container_width=True):
+            st.session_state.selected_tab = "Dashboard Principal"
+        
+        if st.button("Tendencias y Rankings", key="nav_tendencias", use_container_width=True):
+            st.session_state.selected_tab = "Tendencias y Rankings"
+        
+        if st.button("Análisis Geográfico", key="nav_geografico", use_container_width=True):
+            st.session_state.selected_tab = "Análisis Geográfico"
+        
+        if st.button("Análisis Detallado", key="nav_detallado", use_container_width=True):
+            st.session_state.selected_tab = "Análisis Detallado"
+        
+        if st.button("Exportación", key="nav_exportacion", use_container_width=True):
+            st.session_state.selected_tab = "Exportación"
+        
+        st.markdown("---")
+        
         if st.button("Recargar Datos", use_container_width=True, help="Fuerza la recarga de datos desde el CSV, limpiando el cache"):
             # Limpiar cache de datos
             load_data.clear()
             apply_filters_fast.clear()
             calculate_metrics.clear()
             st.rerun()
+        
+        selected_tab = st.session_state.selected_tab
     
     # Inicializar filtros vacíos PRIMERO (sin esperar datos)
     # Esto permite que la interfaz se muestre inmediatamente
@@ -698,13 +509,8 @@ def main():
         # Solo retornar el valor seleccionado
         return selected
     
-    # === SECCIÓN DE FILTROS EN ÁREA PRINCIPAL ===
-    st.markdown("""
-    <div style='background: #f8f9fa; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; 
-                border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);'>
-        <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.3rem; font-weight: 600;'>Filtros de Búsqueda</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    # === SECCIÓN DE FILTROS ===
+    st.markdown("### Filtros de Búsqueda", unsafe_allow_html=True)
     
     # Búsqueda global
     search_term = st.text_input(
@@ -878,13 +684,8 @@ def main():
         st.warning("No se encontraron registros para los filtros actuales.")
     
     if metrics:
-        # Header de métricas con diseño mejorado
-        st.markdown("""
-        <div style='text-align: center; margin-bottom: 2rem;'>
-            <h2 style='color: #1e3a8a; font-size: 1.8rem; margin-bottom: 0.5rem; font-weight: 600;'>Resumen Ejecutivo</h2>
-            <p style='color: #64748b; font-size: 1rem;'>Métricas clave en tiempo real</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Header de métricas
+        st.markdown("### Resumen Ejecutivo")
         
         # Primera fila de métricas (4 columnas)
         col1, col2, col3, col4 = st.columns(4)
@@ -892,17 +693,16 @@ def main():
         # Segunda fila de métricas (4 columnas)
         col5, col6, col7, col8 = st.columns(4)
         
-        # Paleta de colores profesional uniforme (azules y grises)
-        # Variaciones sutiles de azul corporativo
+        # Paleta de colores nueva (#bfe084, #3c8198, #424e71, #252559)
         color_palette = [
-            "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",  # Azul oscuro a medio
-            "linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)",  # Azul medio a claro
-            "linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%)",  # Azul claro a muy claro
-            "linear-gradient(135deg, #475569 0%, #64748b 100%)",  # Gris azulado
-            "linear-gradient(135deg, #1e40af 0%, #2563eb 100%)",  # Azul profundo
-            "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",  # Azul medio
-            "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",  # Azul oscuro
-            "linear-gradient(135deg, #334155 0%, #475569 100%)"   # Gris oscuro
+            "linear-gradient(135deg, #3c8198 0%, #424e71 100%)",  # Azul a azul oscuro
+            "linear-gradient(135deg, #bfe084 0%, #3c8198 100%)",  # Verde a azul
+            "linear-gradient(135deg, #424e71 0%, #252559 100%)",  # Azul oscuro a muy oscuro
+            "linear-gradient(135deg, #3c8198 0%, #bfe084 100%)",  # Azul a verde
+            "linear-gradient(135deg, #252559 0%, #424e71 100%)",  # Muy oscuro a azul oscuro
+            "linear-gradient(135deg, #bfe084 0%, #424e71 100%)",  # Verde a azul oscuro
+            "linear-gradient(135deg, #3c8198 0%, #252559 100%)",  # Azul a muy oscuro
+            "linear-gradient(135deg, #424e71 0%, #3c8198 100%)"   # Azul oscuro a azul
         ]
         
         # Configuración de métricas sin emojis - Primera fila
@@ -910,25 +710,25 @@ def main():
             {
                 "label": "Total de oficios",
                 "value": f"{metrics.get('total_oficios', metrics['total']):,}",
-                "color": "#1e3a8a",
+                "color": "#3c8198",
                 "bg": color_palette[0]
             },
             {
                 "label": "Monto total embargado",
                 "value": f"${metrics['monto_total']:,.0f}",
-                "color": "#3b82f6",
+                "color": "#bfe084",
                 "bg": color_palette[1]
             },
             {
                 "label": "Promedio de oficios por mes",
                 "value": f"{metrics.get('promedio_oficios_mes', 0):,.2f}",
-                "color": "#60a5fa",
+                "color": "#424e71",
                 "bg": color_palette[2]
             },
             {
                 "label": "Registros visualizados",
                 "value": f"{metrics.get('registros_visualizados', min(100, metrics.get('total', 0))):,}",
-                "color": "#64748b",
+                "color": "#3c8198",
                 "bg": color_palette[3]
             }
         ]
@@ -938,25 +738,25 @@ def main():
             {
                 "label": "Porcentaje clientes",
                 "value": f"{metrics['porcentaje_clientes']:.1f}%",
-                "color": "#1e40af",
+                "color": "#252559",
                 "bg": color_palette[4]
             },
             {
                 "label": "Monto promedio/oficio",
                 "value": f"${metrics['monto_promedio']:,.0f}",
-                "color": "#2563eb",
+                "color": "#bfe084",
                 "bg": color_palette[5]
             },
             {
                 "label": "Oficios activos",
                 "value": f"{metrics['activos']:,}",
-                "color": "#1e3a8a",
+                "color": "#3c8198",
                 "bg": color_palette[6]
             },
             {
                 "label": "Embargos judiciales",
                 "value": f"{metrics.get('embargos_judiciales', 0):,}",
-                "color": "#334155",
+                "color": "#424e71",
                 "bg": color_palette[7]
             }
         ]
@@ -965,19 +765,30 @@ def main():
         cols_row1 = [col1, col2, col3, col4]
         for i, (col, config) in enumerate(zip(cols_row1, metric_configs_row1)):
             with col:
+                # Calcular tamaño de fuente dinámico según longitud del valor
+                value_length = len(str(config['value']))
+                if value_length > 20:
+                    font_size = "1.4rem"
+                elif value_length > 15:
+                    font_size = "1.8rem"
+                else:
+                    font_size = "2.2rem"
+                
                 st.markdown(f"""
-                <div class="metric-card metric-card-{i+1} fade-in" style="
-                    background: {config['bg']};
-                    color: white;
+                <div class="kpi-card" style="
+                    background: white;
                     padding: 1.5rem;
                     border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                    text-align: center;
-                    border: none;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
                     margin-bottom: 1rem;
+                    border: 1px solid #e2e8f0;
+                    height: 140px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
                 ">
-                    <div style="font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.5px;">{config['value']}</div>
-                    <div style="font-size: 0.95rem; opacity: 0.95; font-weight: 500;">{config['label']}</div>
+                    <div class="kpi-label" style="font-size: 0.85rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.8rem;">{config['label']}</div>
+                    <div class="kpi-value" style="font-size: {font_size}; font-weight: 700; color: #3c8198; letter-spacing: -0.5px; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.2;">{config['value']}</div>
                 </div>
                 """, unsafe_allow_html=True)
         
@@ -985,19 +796,30 @@ def main():
         cols_row2 = [col5, col6, col7, col8]
         for i, (col, config) in enumerate(zip(cols_row2, metric_configs_row2)):
             with col:
+                # Calcular tamaño de fuente dinámico según longitud del valor
+                value_length = len(str(config['value']))
+                if value_length > 20:
+                    font_size = "1.4rem"
+                elif value_length > 15:
+                    font_size = "1.8rem"
+                else:
+                    font_size = "2.2rem"
+                
                 st.markdown(f"""
-                <div class="metric-card metric-card-{i+5} fade-in" style="
-                    background: {config['bg']};
-                    color: white;
+                <div class="kpi-card" style="
+                    background: white;
                     padding: 1.5rem;
                     border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                    text-align: center;
-                    border: none;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
                     margin-bottom: 1rem;
+                    border: 1px solid #e2e8f0;
+                    height: 140px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
                 ">
-                    <div style="font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.5px;">{config['value']}</div>
-                    <div style="font-size: 0.95rem; opacity: 0.95; font-weight: 500;">{config['label']}</div>
+                    <div class="kpi-label" style="font-size: 0.85rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.8rem;">{config['label']}</div>
+                    <div class="kpi-value" style="font-size: {font_size}; font-weight: 700; color: #3c8198; letter-spacing: -0.5px; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.2;">{config['value']}</div>
                 </div>
                 """, unsafe_allow_html=True)
     
@@ -1007,17 +829,11 @@ def main():
                 margin: 2rem 0; border-radius: 2px;"></div>
     """, unsafe_allow_html=True)
     
-    # === PESTAÑAS PRINCIPALES ===
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Dashboard Principal",
-        "Tendencias y Rankings",
-        "Análisis Geográfico",
-        "Análisis Detallado",
-        "Exportación"
-    ])
+    # === RENDERIZADO DE CONTENIDO SEGÚN NAVEGACIÓN ===
+    selected_tab = st.session_state.get('selected_tab', 'Dashboard Principal')
     
     # === TAB 1: DASHBOARD PRINCIPAL ===
-    with tab1:
+    if selected_tab == "Dashboard Principal":
         if df_filt.empty:
             st.markdown("""
             <div style='text-align: center; padding: 3rem; background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); 
@@ -1027,24 +843,14 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Header de sección
-            st.markdown("""
-            <div class="section-title fade-in">
-                Visualizaciones Principales
-            </div>
-            """, unsafe_allow_html=True)
+            # Distribución de Datos
+            st.markdown("### Distribución de Datos")
             
             # Gráfico de distribución por tipo
             col_left, col_right = st.columns(2)
             
             with col_left:
-                st.markdown("""
-                <div class="chart-card fade-in">
-                    <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.2rem; font-weight: 600;'>
-                        Distribución por Tipo de Embargo
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Distribución por Tipo de Embargo")
                 if 'tipo_embargo' in df_filt.columns:
                     tipo_embargo_map = {
                         'JUDICIAL': ['JUDICIAL', 'Judicial', 'judicial', 'JUDICIAL_', 'JUDICIALES'],
@@ -1081,7 +887,7 @@ def main():
                                 values='cantidad',
                                 names='tipo',
                                 hole=0.5,
-                                color_discrete_sequence=['#1e3a8a', '#3b82f6']
+                                color_discrete_sequence=['#3c8198', '#bfe084', '#424e71', '#252559']
                             )
                             fig.update_traces(
                                 textposition='inside', 
@@ -1105,13 +911,7 @@ def main():
                             st.plotly_chart(fig, use_container_width=True)
             
             with col_right:
-                st.markdown("""
-                <div class="chart-card fade-in">
-                    <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.2rem; font-weight: 600;'>
-                        Distribución por Estado
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Distribución por Estado")
                 if 'estado_embargo' in df_filt.columns and len(df_filt) > 0:
                     estados_permitidos_map = {
                         'CONFIRMADO': [
@@ -1173,8 +973,7 @@ def main():
                                 x=estado_counts.index,
                                 y=estado_counts.values,
                                 marker=dict(
-                                    color=estado_counts.values,
-                                    colorscale='Viridis',
+                                    color=['#3c8198', '#bfe084', '#424e71', '#252559'][:len(estado_counts)],
                                     line=dict(color='#FFFFFF', width=1)
                                 ),
                                 text=estado_counts.values,
@@ -1192,23 +991,13 @@ def main():
                         )
                         st.plotly_chart(fig, use_container_width=True)
             
-            # Top entidades, ciudades y funcionarios
-            st.markdown("""
-            <div class="section-title fade-in" style='margin-top: 2rem;'>
-                Rankings Top 10
-            </div>
-            """, unsafe_allow_html=True)
+            # Rankings principales
+            st.markdown("### Rankings Principales")
             
             col_a, col_b, col_c = st.columns(3)
             
             with col_a:
-                st.markdown("""
-                <div class="chart-card fade-in">
-                    <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.2rem; font-weight: 600;'>
-                        Entidades Bancarias
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Entidades Bancarias")
                 if 'entidad_bancaria' in df_filt.columns and len(df_filt) > 0:
                     # Solo incluir los 4 bancos reales
                     bancos_validos = ['FALABELLA', 'COLPATRIA', 'COOPCENTRAL', 'SANTANDER']
@@ -1238,7 +1027,7 @@ def main():
                                 orientation='h',
                                 marker=dict(
                                     color=top_bancos.values,
-                                    colorscale='Blues',
+                                    colorscale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
                                     line=dict(color='#FFFFFF', width=1)
                                 ),
                                 text=top_bancos.values,
@@ -1257,13 +1046,7 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
             
             with col_b:
-                st.markdown("""
-                <div class="chart-card fade-in">
-                    <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.2rem; font-weight: 600;'>
-                        Top 10 Ciudades
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Ciudades")
                 if 'ciudad' in df_filt.columns and len(df_filt) > 0:
                     top_ciudades = df_filt['ciudad'].value_counts().head(10)
                     if not top_ciudades.empty and len(top_ciudades) > 0:
@@ -1274,7 +1057,7 @@ def main():
                                 orientation='h',
                                 marker=dict(
                                     color=top_ciudades.values,
-                                    colorscale='Greens',
+                                    colorscale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
                                     line=dict(color='#FFFFFF', width=1)
                                 ),
                                 text=top_ciudades.values,
@@ -1293,13 +1076,7 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
             
             with col_c:
-                st.markdown("""
-                <div class="chart-card fade-in">
-                    <h3 style='color: #1e3a8a; margin-bottom: 1rem; font-size: 1.2rem; font-weight: 600;'>
-                        Top 10 Funcionarios
-                    </h3>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Funcionarios")
                 if 'funcionario' in df_filt.columns and len(df_filt) > 0:
                     top_funcionarios = df_filt['funcionario'].value_counts().head(10)
                     if not top_funcionarios.empty and len(top_funcionarios) > 0:
@@ -1310,7 +1087,7 @@ def main():
                                 orientation='h',
                                 marker=dict(
                                     color=top_funcionarios.values,
-                                    colorscale='Oranges',
+                                    colorscale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
                                     line=dict(color='#FFFFFF', width=1)
                                 ),
                                 text=top_funcionarios.values,
@@ -1328,12 +1105,8 @@ def main():
                         )
                         st.plotly_chart(fig, use_container_width=True)
             
-            # Evolución mensual de oficios (gráfico de línea simple)
-            st.markdown("""
-            <div class="section-title fade-in" style='margin-top: 2rem;'>
-                Evolución Mensual de Oficios
-            </div>
-            """, unsafe_allow_html=True)
+            # Evolución temporal
+            st.markdown("### Evolución Temporal")
             
             if 'mes' in df_filt.columns and len(df_filt) > 0:
                 df_time = df_filt.groupby('mes', observed=True).size().reset_index(name='oficios')
@@ -1354,7 +1127,7 @@ def main():
                         markers=True,
                         title="Evolución mensual de oficios",
                         labels={"mes": "Mes", "oficios": "Cantidad de Oficios"},
-                        color_discrete_sequence=['#1e3a8a']
+                        color_discrete_sequence=['#3c8198']
                     )
                     fig.update_traces(line=dict(width=3), marker=dict(size=8))
                     fig.update_layout(
@@ -1368,12 +1141,8 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
                     st.caption("Interactúa: haz zoom o consulta valores pasando el mouse sobre los puntos.")
             
-            # Top 10 Entidades Remitentes
-            st.markdown("""
-            <div class="section-title fade-in" style='margin-top: 2rem;'>
-                Top 10 Entidades Remitentes
-            </div>
-            """, unsafe_allow_html=True)
+            # Principales Entidades Remitentes
+            st.markdown("### Principales Entidades Remitentes")
             
             if 'entidad_remitente' in df_filt.columns and len(df_filt) > 0:
                 top_entidades = df_filt['entidad_remitente'].value_counts().head(10)
@@ -1385,7 +1154,7 @@ def main():
                             orientation='h',
                             marker=dict(
                                 color=top_entidades.values,
-                                colorscale='Purples',
+                                colorscale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
                                 line=dict(color='#FFFFFF', width=1)
                             ),
                             text=top_entidades.values,
@@ -1404,11 +1173,7 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
             
             # Gráfica de Proporción Judicial vs Coactivo (Mensual)
-            st.markdown("""
-            <div class="section-title fade-in" style='margin-top: 2rem;'>
-                Proporción Judicial vs Coactivo (Mensual)
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown("### Proporción Judicial vs Coactivo (Mensual)")
             
             if 'tipo_embargo' in df_filt.columns and 'mes' in df_filt.columns and len(df_filt) > 0:
                 # Calcular proporciones mensuales
@@ -1435,14 +1200,14 @@ def main():
                 # Orden de apilamiento (de abajo hacia arriba)
                 orden_tipos = ['0', 'COACTIVO', 'JUDICIAL', 'PROCESADO', 'SIN_PROCESAR']
                 
-                # Colores profesional: Gris y Azul para los tipos principales
-                # Mapear tipos de embargo a colores (gris y azul)
+                # Colores con nueva paleta personalizada
+                # Mapear tipos de embargo a colores de la paleta
                 colores = {
-                    'COACTIVO': '#64748b',      # Gris azulado (serie inferior)
-                    'JUDICIAL': '#1e3a8a',      # Azul oscuro (serie superior)
-                    '0': '#475569',             # Gris oscuro
-                    'PROCESADO': '#93c5fd',      # Azul claro
-                    'SIN_PROCESAR': '#cbd5e1'   # Gris claro
+                    'COACTIVO': '#424e71',      # Azul oscuro (serie inferior)
+                    'JUDICIAL': '#3c8198',      # Azul principal (serie superior)
+                    '0': '#252559',             # Azul muy oscuro
+                    'PROCESADO': '#bfe084',     # Verde claro
+                    'SIN_PROCESAR': '#e2e8f0'   # Gris muy claro
                 }
                 
                 tipos_disponibles = prop_mensual['tipo_embargo'].unique()
@@ -1483,9 +1248,16 @@ def main():
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.caption("Visualiza la proporción mensual según tipo de embargo.")
+        
+        # Footer
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
+            Desarrollado por Faber Ospina
+        </div>
+        """, unsafe_allow_html=True)
     
     # === TAB 2: TENDENCIAS Y RANKINGS ===
-    with tab2:
+    elif selected_tab == "Tendencias y Rankings":
         if df_filt.empty:
             st.markdown("""
             <div style='text-align: center; padding: 3rem; background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); 
@@ -1495,26 +1267,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Header de sección "Tendencias y Rankings"
-            st.markdown("""
-            <div style='display: flex; align-items: center; gap: 0.8rem; margin-bottom: 2rem;'>
-                <h2 style='margin: 0; color: #2d3748; font-size: 2rem; background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-                            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;'>
-                    Tendencias y Rankings
-                </h2>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Selector de visualización
-            st.markdown("""
-            <div style='background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
-                        padding: 1.2rem; border-radius: 15px; margin-bottom: 1.5rem; 
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.08);'>
-                <div style='display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;'>
-                    <span style='font-weight: 600; color: #2d3748; font-size: 1.1rem;'>Evolución Mensual de Oficios</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown("### Tendencia Temporal de Oficios")
             
             if 'mes' in df_filt.columns and len(df_filt) > 0:
                 oficios_mensual = df_filt.groupby('mes', observed=True).size().reset_index(name='cantidad_oficios')
@@ -1536,8 +1289,8 @@ def main():
                             y=oficios_mensual['cantidad_oficios'],
                             mode='lines+markers',
                             name="Cantidad de Oficios",
-                            line=dict(color='#1f77b4', width=3),  # Color azul por defecto de Plotly
-                            marker=dict(size=8, color='#1f77b4', line=dict(width=2, color='white')),
+                            line=dict(color='#3c8198', width=3),
+                            marker=dict(size=8, color='#3c8198', line=dict(width=2, color='white')),
                             hovertemplate='<b>%{x}</b><br>Cantidad de Oficios: %{y:,.0f}<extra></extra>'
                         )
                     )
@@ -1591,27 +1344,25 @@ def main():
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Mensaje de ayuda interactiva
-                    st.markdown("""
-                    <div style='display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; padding: 1rem; 
-                                background: #f8f9fa; border-radius: 10px; border-left: 4px solid #1e3a8a;'>
-                        <span style='color: #4a5568; font-size: 0.9rem;'>
-                            Haz zoom o pasa el mouse sobre los puntos para ver detalles.
-                        </span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.caption("Haz zoom o pasa el mouse sobre los puntos para ver detalles.")
                 else:
                     st.warning("No se pudieron calcular los datos de oficios mensuales.")
             else:
                 st.warning("No hay datos de meses disponibles para el análisis.")
+        
+        # Footer
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
+            Desarrollado por Faber Ospina
+        </div>
+        """, unsafe_allow_html=True)
     
     # === TAB 3: ANÁLISIS GEOGRÁFICO ===
-    with tab3:
+    elif selected_tab == "Análisis Geográfico":
         if df_filt.empty:
             st.warning("No hay datos para análisis geográfico.")
         else:
-            st.subheader("Análisis por Ubicación")
+            st.markdown("### Distribución Geográfica")
             
             col_geo1, col_geo2 = st.columns(2)
             
@@ -1637,8 +1388,8 @@ def main():
                         orientation='h',
                         marker=dict(
                             color=ciudad_stats['monto'],
-                            colorscale='Blues',
-                            line=dict(color='#1e3a8a', width=1),
+                            colorscale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
+                            line=dict(color='#3c8198', width=1),
                             showscale=True,
                             colorbar=dict(
                                 title=dict(text="Monto", font=dict(color='#2d3748')),
@@ -1703,18 +1454,25 @@ def main():
                         labels=dict(x="Banco", y="Ciudad", color="Cantidad"),
                         x=cross_tab.columns,
                         y=cross_tab.index,
-                        color_continuous_scale='YlOrRd',
+                        color_continuous_scale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']],
                         aspect="auto"
                     )
                     fig.update_layout(height=500, title="Matriz Ciudad vs Banco")
                     st.plotly_chart(fig, use_container_width=True)
+        
+        # Footer
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
+            Desarrollado por Faber Ospina
+        </div>
+        """, unsafe_allow_html=True)
     
     # === TAB 4: ANÁLISIS DETALLADO ===
-    with tab4:
+    elif selected_tab == "Análisis Detallado":
         if df_filt.empty:
             st.warning("No hay datos para análisis detallado.")
         else:
-            st.subheader("Análisis Detallado")
+            st.markdown("### Análisis Detallado")
             
             # Selector de análisis
             analisis_tipo = st.selectbox(
@@ -1724,7 +1482,7 @@ def main():
             
             if analisis_tipo == "Distribución de Montos":
                 if 'montoaembargar' in df_filt.columns:
-                    st.subheader("Distribución de Montos")
+                    st.markdown("#### Análisis de Montos a Embargar")
                     
                     # Análisis de valores cero y no cero
                     montos = df_filt['montoaembargar'].dropna()
@@ -1759,7 +1517,7 @@ def main():
                                 x=montos_sin_outliers.values,
                                 nbins=50,
                                 labels={'x': 'Monto a Embargar', 'count': 'Frecuencia'},
-                                color_discrete_sequence=['#1e3a8a']
+                                color_discrete_sequence=['#3c8198']
                             )
                             fig1.update_layout(height=400, showlegend=False)
                             st.plotly_chart(fig1, use_container_width=True)
@@ -1771,7 +1529,7 @@ def main():
                             st.warning(f"**Valores atípicos detectados:** {outliers_count:,} registros ({outliers_count/len(montos_no_cero)*100:.1f}%) están fuera del rango intercuartílico (IQR) y se excluyen del histograma principal para mejor visualización.")
                         
                         # Estadísticas robustas
-                        st.markdown("### Estadísticas Descriptivas")
+                        st.markdown("#### Estadísticas Descriptivas")
                         col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
                         
                         with col_stat1:
@@ -1798,7 +1556,7 @@ def main():
                         st.warning("No hay registros con montos mayores a cero para analizar.")
             
             elif analisis_tipo == "Análisis de Clientes":
-                st.subheader("Análisis de Clientes")
+                st.markdown("#### Análisis de Clientes")
                 
                 if 'es_cliente' in df_filt.columns:
                     cliente_counts = df_filt['es_cliente'].value_counts()
@@ -1807,13 +1565,13 @@ def main():
                         cliente_counts,
                         values=cliente_counts.values,
                         names=['No Cliente', 'Cliente'],
-                        color_discrete_sequence=['#64748b', '#3b82f6']
+                        color_discrete_sequence=['#424e71', '#3c8198']
                     )
                     fig.update_layout(height=400)
                     st.plotly_chart(fig, use_container_width=True)
             
             elif analisis_tipo == "Análisis de Documentos":
-                st.subheader("📄 Análisis de Documentos")
+                st.markdown("#### Análisis de Documentos")
                 
                 if 'tipo_documento' in df_filt.columns:
                     doc_counts = df_filt['tipo_documento'].value_counts().head(10)
@@ -1823,22 +1581,29 @@ def main():
                         y=doc_counts.values,
                         labels={'x': 'Tipo de Documento', 'y': 'Cantidad'},
                         color=doc_counts.values,
-                        color_continuous_scale='Purples'
+                        color_continuous_scale=[[0, '#bfe084'], [0.5, '#3c8198'], [1, '#424e71']]
                     )
                     fig.update_layout(height=400, showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
             
             # Tabla de datos
-            st.subheader("Datos Filtrados")
+            st.markdown("### Datos Filtrados")
             st.dataframe(
                 df_filt.head(100),
                 use_container_width=True,
                 height=400
             )
+        
+        # Footer
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
+            Desarrollado por Faber Ospina
+        </div>
+        """, unsafe_allow_html=True)
     
     # === TAB 5: EXPORTACIÓN ===
-    with tab5:
-        st.subheader("Exportar Datos")
+    elif selected_tab == "Exportación":
+        st.markdown("### Exportar Datos")
         
         if df_filt.empty:
             st.warning("No hay datos para exportar.")
@@ -1888,6 +1653,13 @@ def main():
             
             # Resumen de exportación
             st.info(f"Se exportarán {len(df_filt):,} registros con {len(df_filt.columns)} columnas.")
+        
+        # Footer
+        st.markdown("""
+        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
+            Desarrollado por Faber Ospina
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

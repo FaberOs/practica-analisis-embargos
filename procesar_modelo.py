@@ -8,9 +8,10 @@ import csv
 import os
 import sys
 from xgboost import XGBRegressor, XGBClassifier
-from sklearn.metrics import mean_squared_error, mean_absolute_error, classification_report
+from sklearn.metrics import mean_squared_error, mean_absolute_error, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+import json
 
 # Configurar codificación UTF-8 para Windows
 if sys.platform == 'win32':
@@ -260,22 +261,139 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         mae = mean_absolute_error(y_test_clean, y_pred)
         print(f"   RMSE: {rmse:.2f}, MAE: {mae:.2f}")
         
-        # Guardar predicciones de oficios
+        # Guardar predicciones de validación histórica de oficios
         df_pred_oficios = test.iloc[mask_test.values][['año', 'mes_num']].copy()
         df_pred_oficios['real_oficios'] = y_test_clean.values
         df_pred_oficios['pred_oficios'] = y_pred
         df_pred_oficios['mes'] = df_pred_oficios['año'].astype(str) + "-" + df_pred_oficios['mes_num'].astype(str).str.zfill(2)
-        output_file = os.path.join(output_dir, "predicciones_oficios_por_mes.csv")
+        output_file = os.path.join(output_dir, "predicciones_oficios_validacion.csv")
         df_pred_oficios[['mes', 'real_oficios', 'pred_oficios']].to_csv(output_file, index=False)
         print(f"   [OK] Generado: {output_file}")
+        
+        # ============================================================================
+        # PREDICCIÓN FUTURA: Entrenar con TODOS los datos y predecir 12 meses adelante
+        # ============================================================================
+        print("\n[INFO] Generando predicciones futuras de oficios (12 meses)...")
+        
+        # Entrenar modelo con todos los datos disponibles
+        X_full = oficios_por_mes[features_reg]
+        y_full = oficios_por_mes['id']
+        mask_full = ~(X_full.isnull().any(axis=1) | y_full.isnull())
+        X_full_clean, y_full_clean = X_full[mask_full], y_full[mask_full]
+        
+        if len(X_full_clean) > 0:
+            # Entrenar modelo con todos los datos
+            regressor_futuro = XGBRegressor(
+                n_estimators=200, learning_rate=0.1, max_depth=7,
+                objective='count:poisson', random_state=42,
+                base_score=np.mean(y_full_clean)
+            )
+            regressor_futuro.fit(X_full_clean, y_full_clean)
+            print(f"   Modelo entrenado con {len(X_full_clean)} registros históricos")
+            
+            # Obtener últimos valores para lags
+            ultimo_registro = oficios_por_mes.iloc[-1]
+            ultimo_año = int(ultimo_registro['año'])
+            ultimo_mes = int(ultimo_registro['mes_num'])
+            
+            # Obtener últimos 3 valores reales de oficios para lags
+            ultimos_oficios = oficios_por_mes['id'].tail(3).values
+            oficios_lag1 = ultimos_oficios[-1] if len(ultimos_oficios) >= 1 else oficios_por_mes['id'].mean()
+            oficios_lag2 = ultimos_oficios[-2] if len(ultimos_oficios) >= 2 else oficios_por_mes['id'].mean()
+            oficios_lag3 = ultimos_oficios[-3] if len(ultimos_oficios) >= 3 else oficios_por_mes['id'].mean()
+            oficios_ma3 = np.mean(ultimos_oficios) if len(ultimos_oficios) == 3 else oficios_por_mes['id'].mean()
+            
+            # Predicción recursiva para 12 meses
+            predicciones_futuras = []
+            
+            for horizonte in range(1, 13):  # 1 a 12 meses
+                # Calcular fecha del mes a predecir
+                mes_futuro = ultimo_mes + horizonte
+                año_futuro = ultimo_año
+                while mes_futuro > 12:
+                    mes_futuro -= 12
+                    año_futuro += 1
+                
+                # Calcular componentes trigonométricas
+                mes_sin = np.sin(2 * np.pi * mes_futuro / 12)
+                mes_cos = np.cos(2 * np.pi * mes_futuro / 12)
+                
+                # Crear features para predicción
+                X_futuro = pd.DataFrame({
+                    'año': [año_futuro],
+                    'mes_num': [mes_futuro],
+                    'mes_sin': [mes_sin],
+                    'mes_cos': [mes_cos],
+                    'oficios_lag1': [oficios_lag1],
+                    'oficios_lag2': [oficios_lag2],
+                    'oficios_lag3': [oficios_lag3],
+                    'oficios_ma3': [oficios_ma3]
+                })
+                
+                # Predecir
+                pred_oficios = regressor_futuro.predict(X_futuro)[0]
+                pred_oficios = max(0, pred_oficios)  # No permitir valores negativos
+                
+                # Calcular intervalos de confianza basados en MAE histórico
+                # Confianza degrada 10% por cada mes de horizonte
+                factor_confianza = 1 + (horizonte - 1) * 0.1
+                intervalo = mae * factor_confianza
+                
+                limite_inferior = max(0, pred_oficios - intervalo)
+                limite_superior = pred_oficios + intervalo
+                
+                # Clasificar confianza
+                if horizonte <= 3:
+                    nivel_confianza = "Alta"
+                elif horizonte <= 6:
+                    nivel_confianza = "Media"
+                else:
+                    nivel_confianza = "Baja"
+                
+                # Guardar predicción
+                mes_str = f"{año_futuro}-{str(mes_futuro).zfill(2)}"
+                predicciones_futuras.append({
+                    'mes': mes_str,
+                    'pred_oficios': round(pred_oficios, 2),
+                    'limite_inferior': round(limite_inferior, 2),
+                    'limite_superior': round(limite_superior, 2),
+                    'nivel_confianza': nivel_confianza,
+                    'horizonte_meses': horizonte
+                })
+                
+                # Actualizar lags para siguiente iteración (predicción recursiva)
+                oficios_lag3 = oficios_lag2
+                oficios_lag2 = oficios_lag1
+                oficios_lag1 = pred_oficios
+                oficios_ma3 = np.mean([oficios_lag1, oficios_lag2, oficios_lag3])
+            
+            # Guardar predicciones futuras
+            df_futuro_oficios = pd.DataFrame(predicciones_futuras)
+            output_file_futuro = os.path.join(output_dir, "predicciones_oficios_futuro.csv")
+            df_futuro_oficios.to_csv(output_file_futuro, index=False)
+            print(f"   [OK] Generado: {output_file_futuro}")
+            print(f"   Predicción para próximo mes ({predicciones_futuras[0]['mes']}): {predicciones_futuras[0]['pred_oficios']:.0f} oficios")
+            print(f"   Proyección anual (12 meses): {sum(p['pred_oficios'] for p in predicciones_futuras):.0f} oficios")
+        else:
+            print(f"   [ADVERTENCIA] No hay suficientes datos para generar predicciones futuras")
+            # Crear archivo vacío
+            output_file_futuro = os.path.join(output_dir, "predicciones_oficios_futuro.csv")
+            df_futuro_oficios = pd.DataFrame(columns=['mes', 'pred_oficios', 'limite_inferior', 'limite_superior', 'nivel_confianza', 'horizonte_meses'])
+            df_futuro_oficios.to_csv(output_file_futuro, index=False)
+            print(f"   [INFO] Archivo vacío creado: {output_file_futuro}")
     else:
         print(f"   [ADVERTENCIA] No hay suficientes datos limpios para entrenar el modelo de oficios")
         print(f"      Datos de entrenamiento limpios: {len(X_train_clean)}, Datos de test limpios: {len(X_test_clean)}")
-        # Generar archivo vacío o con datos básicos
-        output_file = os.path.join(output_dir, "predicciones_oficios_por_mes.csv")
+        # Generar archivos vacíos
+        output_file = os.path.join(output_dir, "predicciones_oficios_validacion.csv")
         df_pred_oficios = pd.DataFrame(columns=['mes', 'real_oficios', 'pred_oficios'])
         df_pred_oficios.to_csv(output_file, index=False)
         print(f"   [INFO] Archivo vacío creado: {output_file}")
+        
+        output_file_futuro = os.path.join(output_dir, "predicciones_oficios_futuro.csv")
+        df_futuro_oficios = pd.DataFrame(columns=['mes', 'pred_oficios', 'limite_inferior', 'limite_superior', 'nivel_confianza', 'horizonte_meses'])
+        df_futuro_oficios.to_csv(output_file_futuro, index=False)
+        print(f"   [INFO] Archivo vacío creado: {output_file_futuro}")
     
     # REGRESIÓN: Demandados por mes
     print("\n[INFO] Entrenando modelo de regresión: Demandados únicos por mes...")
@@ -303,22 +421,138 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         mae = mean_absolute_error(y_test_d_clean, y_pred_d)
         print(f"   RMSE: {rmse:.2f}, MAE: {mae:.2f}")
         
-        # Guardar predicciones de demandados
+        # Guardar predicciones de validación histórica de demandados
         df_pred_demandados = test.iloc[mask_test_d.values][['año', 'mes_num']].copy()
         df_pred_demandados['real_demandados'] = y_test_d_clean.values
         df_pred_demandados['pred_demandados'] = y_pred_d
         df_pred_demandados['mes'] = df_pred_demandados['año'].astype(str) + "-" + df_pred_demandados['mes_num'].astype(str).str.zfill(2)
-        output_file = os.path.join(output_dir, "predicciones_demandados_por_mes.csv")
+        output_file = os.path.join(output_dir, "predicciones_demandados_validacion.csv")
         df_pred_demandados[['mes', 'real_demandados', 'pred_demandados']].to_csv(output_file, index=False)
         print(f"   [OK] Generado: {output_file}")
+        
+        # ============================================================================
+        # PREDICCIÓN FUTURA: Entrenar con TODOS los datos y predecir 12 meses adelante
+        # ============================================================================
+        print("\n[INFO] Generando predicciones futuras de demandados (12 meses)...")
+        
+        # Entrenar modelo con todos los datos disponibles
+        X_full_d = oficios_por_mes[features_dem]
+        y_full_d = oficios_por_mes['identificacion']
+        mask_full_d = ~(X_full_d.isnull().any(axis=1) | y_full_d.isnull())
+        X_full_d_clean, y_full_d_clean = X_full_d[mask_full_d], y_full_d[mask_full_d]
+        
+        if len(X_full_d_clean) > 0:
+            # Entrenar modelo con todos los datos
+            regressor_dem_futuro = XGBRegressor(
+                n_estimators=200, learning_rate=0.1, max_depth=7,
+                objective='count:poisson', random_state=42,
+                base_score=np.mean(y_full_d_clean)
+            )
+            regressor_dem_futuro.fit(X_full_d_clean, y_full_d_clean)
+            print(f"   Modelo entrenado con {len(X_full_d_clean)} registros históricos")
+            
+            # Obtener últimos valores para lags
+            ultimo_registro = oficios_por_mes.iloc[-1]
+            ultimo_año = int(ultimo_registro['año'])
+            ultimo_mes = int(ultimo_registro['mes_num'])
+            
+            # Obtener últimos 3 valores reales de demandados para lags
+            ultimos_demandados = oficios_por_mes['identificacion'].tail(3).values
+            demandados_lag1 = ultimos_demandados[-1] if len(ultimos_demandados) >= 1 else oficios_por_mes['identificacion'].mean()
+            demandados_lag2 = ultimos_demandados[-2] if len(ultimos_demandados) >= 2 else oficios_por_mes['identificacion'].mean()
+            demandados_lag3 = ultimos_demandados[-3] if len(ultimos_demandados) >= 3 else oficios_por_mes['identificacion'].mean()
+            demandados_ma3 = np.mean([demandados_lag1, demandados_lag2, demandados_lag3])
+            
+            # Predicción recursiva para 12 meses
+            predicciones_futuras_dem = []
+            
+            for horizonte in range(1, 13):  # 1 a 12 meses
+                # Calcular fecha del mes a predecir
+                mes_futuro = ultimo_mes + horizonte
+                año_futuro = ultimo_año
+                while mes_futuro > 12:
+                    mes_futuro -= 12
+                    año_futuro += 1
+                
+                # Calcular componentes trigonométricas
+                mes_sin = np.sin(2 * np.pi * mes_futuro / 12)
+                mes_cos = np.cos(2 * np.pi * mes_futuro / 12)
+                
+                # Crear features para predicción
+                X_futuro_d = pd.DataFrame({
+                    'año': [año_futuro],
+                    'mes_num': [mes_futuro],
+                    'mes_sin': [mes_sin],
+                    'mes_cos': [mes_cos],
+                    'demandados_lag1': [demandados_lag1],
+                    'demandados_lag2': [demandados_lag2],
+                    'demandados_ma3': [demandados_ma3]
+                })
+                
+                # Predecir
+                pred_demandados = regressor_dem_futuro.predict(X_futuro_d)[0]
+                pred_demandados = max(0, pred_demandados)  # No permitir valores negativos
+                
+                # Calcular intervalos de confianza basados en MAE histórico
+                # Confianza degrada 10% por cada mes de horizonte
+                factor_confianza = 1 + (horizonte - 1) * 0.1
+                intervalo = mae * factor_confianza
+                
+                limite_inferior = max(0, pred_demandados - intervalo)
+                limite_superior = pred_demandados + intervalo
+                
+                # Clasificar confianza
+                if horizonte <= 3:
+                    nivel_confianza = "Alta"
+                elif horizonte <= 6:
+                    nivel_confianza = "Media"
+                else:
+                    nivel_confianza = "Baja"
+                
+                # Guardar predicción
+                mes_str = f"{año_futuro}-{str(mes_futuro).zfill(2)}"
+                predicciones_futuras_dem.append({
+                    'mes': mes_str,
+                    'pred_demandados': round(pred_demandados, 2),
+                    'limite_inferior': round(limite_inferior, 2),
+                    'limite_superior': round(limite_superior, 2),
+                    'nivel_confianza': nivel_confianza,
+                    'horizonte_meses': horizonte
+                })
+                
+                # Actualizar lags para siguiente iteración (predicción recursiva)
+                demandados_lag3 = demandados_lag2
+                demandados_lag2 = demandados_lag1
+                demandados_lag1 = pred_demandados
+                demandados_ma3 = np.mean([demandados_lag1, demandados_lag2, demandados_lag3])
+            
+            # Guardar predicciones futuras
+            df_futuro_demandados = pd.DataFrame(predicciones_futuras_dem)
+            output_file_futuro = os.path.join(output_dir, "predicciones_demandados_futuro.csv")
+            df_futuro_demandados.to_csv(output_file_futuro, index=False)
+            print(f"   [OK] Generado: {output_file_futuro}")
+            print(f"   Predicción para próximo mes ({predicciones_futuras_dem[0]['mes']}): {predicciones_futuras_dem[0]['pred_demandados']:.0f} demandados")
+            print(f"   Proyección anual (12 meses): {sum(p['pred_demandados'] for p in predicciones_futuras_dem):.0f} demandados")
+        else:
+            print(f"   [ADVERTENCIA] No hay suficientes datos para generar predicciones futuras")
+            # Crear archivo vacío
+            output_file_futuro = os.path.join(output_dir, "predicciones_demandados_futuro.csv")
+            df_futuro_demandados = pd.DataFrame(columns=['mes', 'pred_demandados', 'limite_inferior', 'limite_superior', 'nivel_confianza', 'horizonte_meses'])
+            df_futuro_demandados.to_csv(output_file_futuro, index=False)
+            print(f"   [INFO] Archivo vacío creado: {output_file_futuro}")
     else:
         print(f"   [ADVERTENCIA] No hay suficientes datos limpios para entrenar el modelo de demandados")
         print(f"      Datos de entrenamiento limpios: {len(X_train_d_clean)}, Datos de test limpios: {len(X_test_d_clean)}")
-        # Generar archivo vacío o con datos básicos
-        output_file = os.path.join(output_dir, "predicciones_demandados_por_mes.csv")
+        # Generar archivos vacíos
+        output_file = os.path.join(output_dir, "predicciones_demandados_validacion.csv")
         df_pred_demandados = pd.DataFrame(columns=['mes', 'real_demandados', 'pred_demandados'])
         df_pred_demandados.to_csv(output_file, index=False)
         print(f"   [INFO] Archivo vacío creado: {output_file}")
+        
+        output_file_futuro = os.path.join(output_dir, "predicciones_demandados_futuro.csv")
+        df_futuro_demandados = pd.DataFrame(columns=['mes', 'pred_demandados', 'limite_inferior', 'limite_superior', 'nivel_confianza', 'horizonte_meses'])
+        df_futuro_demandados.to_csv(output_file_futuro, index=False)
+        print(f"   [INFO] Archivo vacío creado: {output_file_futuro}")
     
     # CLASIFICACIONES
     print("\n[INFO] Entrenando modelos de clasificación...")
@@ -327,8 +561,8 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         'estado_embargo_enc', 'es_cliente_bin'
     ]
     
-    def report_to_df(report, modelo, target_names):
-        """Convierte un reporte de clasificación a DataFrame"""
+    def report_to_df(report, modelo, target_names, y_test, y_pred, label_names):
+        """Convierte un reporte de clasificación a DataFrame e incluye matriz de confusión"""
         df_metrics = pd.DataFrame(report).transpose().reset_index()
         df_metrics = df_metrics.rename(columns={'index': 'clase'})
         df_metrics['modelo'] = modelo
@@ -341,6 +575,18 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
                 'support': 'soporte'
             })
             df_metrics = df_metrics[['modelo', 'clase', 'precision', 'recall', 'f1', 'soporte']]
+        
+        # Calcular matriz de confusión
+        try:
+            cm = confusion_matrix(y_test, y_pred, labels=range(len(label_names)))
+            # Guardar como JSON (una sola fila por modelo)
+            df_metrics['matriz_confusion'] = json.dumps(cm.tolist())
+            df_metrics['clases_matriz'] = json.dumps(label_names)
+        except Exception as e:
+            print(f"      [ADVERTENCIA] No se pudo calcular matriz de confusión: {e}")
+            df_metrics['matriz_confusion'] = None
+            df_metrics['clases_matriz'] = None
+        
         return df_metrics
     
     dfs_clasificaciones = []
@@ -358,9 +604,11 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         y_pred = clf.predict(X_test)
         labels_report = np.unique(np.concatenate([y_test, y_pred]))
         target_names = le_tipo_embargo.inverse_transform(labels_report)
+        # Obtener todas las clases para la matriz
+        all_classes = le_tipo_embargo.classes_
         report = classification_report(y_test, y_pred, output_dict=True,
                                       target_names=target_names, zero_division=0)
-        dfs_clasificaciones.append(report_to_df(report, "Tipo Embargo", target_names))
+        dfs_clasificaciones.append(report_to_df(report, "Tipo Embargo", target_names, y_test, y_pred, all_classes.tolist()))
         print("   [OK] Modelo: Tipo Embargo")
     except Exception as e:
         print(f"   [ADVERTENCIA] Error en Tipo Embargo: {e}")
@@ -389,9 +637,11 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
             y_pred2 = clf2.predict(X_test2)
             labels_report2 = np.unique(np.concatenate([y_test2, y_pred2]))
             target_names2 = le_estado_embargo.inverse_transform(labels_report2)
+            # Obtener todas las clases para la matriz
+            all_classes2 = le_estado_embargo.classes_
             report2 = classification_report(y_test2, y_pred2, output_dict=True,
                                            target_names=target_names2, zero_division=0)
-            dfs_clasificaciones.append(report_to_df(report2, "Estado Embargo", target_names2))
+            dfs_clasificaciones.append(report_to_df(report2, "Estado Embargo", target_names2, y_test2, y_pred2, all_classes2.tolist()))
             print("   [OK] Modelo: Estado Embargo")
     except Exception as e:
         print(f"   [ADVERTENCIA] Error en Estado Embargo: {e}")
@@ -414,9 +664,10 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None):
         y_pred3 = clf3.predict(X_test3)
         labels_report3 = np.unique(np.concatenate([y_test3, y_pred3]))
         target_names3 = ["NO_CLIENTE", "CLIENTE"]
+        all_classes3 = ["NO_CLIENTE", "CLIENTE"]
         report3 = classification_report(y_test3, y_pred3, output_dict=True,
                                        target_names=target_names3, zero_division=0)
-        dfs_clasificaciones.append(report_to_df(report3, "Cliente", target_names3))
+        dfs_clasificaciones.append(report_to_df(report3, "Cliente", target_names3, y_test3, y_pred3, all_classes3))
         print("   [OK] Modelo: Cliente/No Cliente")
     except Exception as e:
         print(f"   [ADVERTENCIA] Error en Cliente: {e}")

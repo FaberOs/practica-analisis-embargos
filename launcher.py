@@ -1155,8 +1155,10 @@ contacta al administrador de la Base de Datos o al equipo técnico.
                     # Verificar que todos los archivos se generaron
                     archivos_esperados = [
                         "embargos_consolidado_mensual.csv",
-                        "predicciones_oficios_por_mes.csv",
-                        "predicciones_demandados_por_mes.csv",
+                        "predicciones_oficios_validacion.csv",
+                        "predicciones_oficios_futuro.csv",
+                        "predicciones_demandados_validacion.csv",
+                        "predicciones_demandados_futuro.csv",
                         "resultados_clasificaciones.csv"
                     ]
                     
