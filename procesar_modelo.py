@@ -18,7 +18,10 @@ from sklearn.preprocessing import LabelEncoder
 import json
 
 Z_VALUE = 1.96
-MIN_CLASS_SAMPLES = 5
+MAX_INTERVAL_RATIO = 1.35
+MIN_INTERVAL_ABS = 500.0
+MIN_CLASS_SAMPLES = 100
+DTYPE_OVERRIDES = {'tipo_carta': 'string'}
 
 
 @dataclass
@@ -43,9 +46,11 @@ def _confidence_label(horizonte: int) -> str:
     return "Baja"
 
 
-def _compute_interval(residual_scale: float, horizonte: int) -> float:
+def _compute_interval(residual_scale: float, horizonte: int, pred_value: float) -> float:
     base = residual_scale if residual_scale > 0 else 1.0
-    return Z_VALUE * base * np.sqrt(max(1, horizonte))
+    raw_interval = Z_VALUE * base * np.sqrt(max(1, horizonte))
+    cap = max(pred_value * MAX_INTERVAL_RATIO, MIN_INTERVAL_ABS)
+    return float(np.clip(raw_interval, 0.0, cap))
 
 
 def _ensure_month_continuity(df: pd.DataFrame) -> pd.DataFrame:
@@ -232,7 +237,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
     print("="*60)
     
     # Cargar datos consolidados
-    df = pd.read_csv(consolidado_path)
+    df = pd.read_csv(consolidado_path, dtype=DTYPE_OVERRIDES)
     
     def agrupar_otros(df, col, min_freq=10):
         freq = df[col].value_counts()
@@ -286,11 +291,21 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
     oficios_por_mes['oficios_lag1'] = oficios_por_mes['id'].shift(1)
     oficios_por_mes['oficios_lag2'] = oficios_por_mes['id'].shift(2)
     oficios_por_mes['oficios_lag3'] = oficios_por_mes['id'].shift(3)
-    oficios_por_mes['oficios_ma3'] = oficios_por_mes['id'].rolling(window=3).mean().shift(1)
+    oficios_por_mes['oficios_ma3'] = (
+        oficios_por_mes['id']
+        .rolling(window=3, min_periods=1)
+        .mean()
+        .shift(1)
+    )
     oficios_por_mes['demandados_lag1'] = oficios_por_mes['identificacion'].shift(1)
     oficios_por_mes['demandados_lag2'] = oficios_por_mes['identificacion'].shift(2)
     oficios_por_mes['demandados_lag3'] = oficios_por_mes['identificacion'].shift(3)
-    oficios_por_mes['demandados_ma3'] = oficios_por_mes['identificacion'].rolling(window=3).mean().shift(1)
+    oficios_por_mes['demandados_ma3'] = (
+        oficios_por_mes['identificacion']
+        .rolling(window=3, min_periods=1)
+        .mean()
+        .shift(1)
+    )
     oficios_por_mes['mes_sin'] = np.sin(2 * np.pi * oficios_por_mes['mes_num'] / 12.0)
     oficios_por_mes['mes_cos'] = np.cos(2 * np.pi * oficios_por_mes['mes_num'] / 12.0)
     
@@ -368,18 +383,18 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
             print(f"   Modelo entrenado con {len(X_full_clean)} registros históricos")
 
             residual_scale = interval_scale if interval_scale > 0 else max(1.0, np.std(y_full_clean))
-            
-            # Obtener últimos valores para lags
+
+            reciente_oficios = y_full_clean.tail(3).tolist()
+            if not reciente_oficios:
+                promedio_hist = float(np.mean(y_full_clean)) if len(y_full_clean) > 0 else 0.0
+                reciente_oficios = [promedio_hist] * 3
+            while len(reciente_oficios) < 3:
+                reciente_oficios.insert(0, float(np.mean(reciente_oficios)))
+            recientes = reciente_oficios[-3:]
+
             ultimo_registro = oficios_por_mes.iloc[-1]
             ultimo_año = int(ultimo_registro['año'])
             ultimo_mes = int(ultimo_registro['mes_num'])
-            
-            # Obtener últimos 3 valores reales de oficios para lags
-            ultimos_oficios = oficios_por_mes['id'].tail(3).values
-            oficios_lag1 = ultimos_oficios[-1] if len(ultimos_oficios) >= 1 else oficios_por_mes['id'].mean()
-            oficios_lag2 = ultimos_oficios[-2] if len(ultimos_oficios) >= 2 else oficios_por_mes['id'].mean()
-            oficios_lag3 = ultimos_oficios[-3] if len(ultimos_oficios) >= 3 else oficios_por_mes['id'].mean()
-            oficios_ma3 = np.mean(ultimos_oficios) if len(ultimos_oficios) == 3 else oficios_por_mes['id'].mean()
             
             # Predicción recursiva para 12 meses
             predicciones_futuras = []
@@ -397,22 +412,24 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
                 mes_cos = np.cos(2 * np.pi * mes_futuro / 12)
                 
                 # Crear features para predicción
+                lag1_val, lag2_val, lag3_val = recientes[-1], recientes[-2], recientes[-3]
+                ma_val = float(np.mean(recientes))
                 X_futuro = pd.DataFrame({
                     'año': [año_futuro],
                     'mes_num': [mes_futuro],
                     'mes_sin': [mes_sin],
                     'mes_cos': [mes_cos],
-                    'oficios_lag1': [oficios_lag1],
-                    'oficios_lag2': [oficios_lag2],
-                    'oficios_lag3': [oficios_lag3],
-                    'oficios_ma3': [oficios_ma3]
+                    'oficios_lag1': [lag1_val],
+                    'oficios_lag2': [lag2_val],
+                    'oficios_lag3': [lag3_val],
+                    'oficios_ma3': [ma_val]
                 })
                 
                 # Predecir
-                pred_oficios = regressor_futuro.predict(X_futuro)[0]
+                pred_oficios = float(regressor_futuro.predict(X_futuro)[0])
                 pred_oficios = max(0, pred_oficios)  # No permitir valores negativos
                 
-                intervalo = _compute_interval(residual_scale, horizonte)
+                intervalo = _compute_interval(residual_scale, horizonte, pred_oficios)
                 
                 limite_inferior = max(0, pred_oficios - intervalo)
                 limite_superior = pred_oficios + intervalo
@@ -431,10 +448,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
                 })
                 
                 # Actualizar lags para siguiente iteración (predicción recursiva)
-                oficios_lag3 = oficios_lag2
-                oficios_lag2 = oficios_lag1
-                oficios_lag1 = pred_oficios
-                oficios_ma3 = np.mean([oficios_lag1, oficios_lag2, oficios_lag3])
+                recientes = [recientes[-2], recientes[-1], pred_oficios]
             
             # Guardar predicciones futuras
             df_futuro_oficios = pd.DataFrame(predicciones_futuras)
@@ -527,18 +541,18 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
             print(f"   Modelo entrenado con {len(X_full_d_clean)} registros históricos")
 
             residual_scale_d = interval_scale_d if interval_scale_d > 0 else max(1.0, np.std(y_full_d_clean))
-            
-            # Obtener últimos valores para lags
+
+            reciente_demandados = y_full_d_clean.tail(3).tolist()
+            if not reciente_demandados:
+                promedio_hist_d = float(np.mean(y_full_d_clean)) if len(y_full_d_clean) > 0 else 0.0
+                reciente_demandados = [promedio_hist_d] * 3
+            while len(reciente_demandados) < 3:
+                reciente_demandados.insert(0, float(np.mean(reciente_demandados)))
+            recientes_d = reciente_demandados[-3:]
+
             ultimo_registro = oficios_por_mes.iloc[-1]
             ultimo_año = int(ultimo_registro['año'])
             ultimo_mes = int(ultimo_registro['mes_num'])
-            
-            # Obtener últimos 3 valores reales de demandados para lags
-            ultimos_demandados = oficios_por_mes['identificacion'].tail(3).values
-            demandados_lag1 = ultimos_demandados[-1] if len(ultimos_demandados) >= 1 else oficios_por_mes['identificacion'].mean()
-            demandados_lag2 = ultimos_demandados[-2] if len(ultimos_demandados) >= 2 else oficios_por_mes['identificacion'].mean()
-            demandados_lag3 = ultimos_demandados[-3] if len(ultimos_demandados) >= 3 else oficios_por_mes['identificacion'].mean()
-            demandados_ma3 = np.mean([demandados_lag1, demandados_lag2, demandados_lag3])
             
             # Predicción recursiva para 12 meses
             predicciones_futuras_dem = []
@@ -556,22 +570,24 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
                 mes_cos = np.cos(2 * np.pi * mes_futuro / 12)
                 
                 # Crear features para predicción
+                lag1_val, lag2_val, lag3_val = recientes_d[-1], recientes_d[-2], recientes_d[-3]
+                ma_val = float(np.mean(recientes_d))
                 X_futuro_d = pd.DataFrame({
                     'año': [año_futuro],
                     'mes_num': [mes_futuro],
                     'mes_sin': [mes_sin],
                     'mes_cos': [mes_cos],
-                    'demandados_lag1': [demandados_lag1],
-                    'demandados_lag2': [demandados_lag2],
-                    'demandados_lag3': [demandados_lag3],
-                    'demandados_ma3': [demandados_ma3]
+                    'demandados_lag1': [lag1_val],
+                    'demandados_lag2': [lag2_val],
+                    'demandados_lag3': [lag3_val],
+                    'demandados_ma3': [ma_val]
                 })
                 
                 # Predecir
-                pred_demandados = regressor_dem_futuro.predict(X_futuro_d)[0]
+                pred_demandados = float(regressor_dem_futuro.predict(X_futuro_d)[0])
                 pred_demandados = max(0, pred_demandados)  # No permitir valores negativos
                 
-                intervalo = _compute_interval(residual_scale_d, horizonte)
+                intervalo = _compute_interval(residual_scale_d, horizonte, pred_demandados)
                 
                 limite_inferior = max(0, pred_demandados - intervalo)
                 limite_superior = pred_demandados + intervalo
@@ -590,11 +606,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
                 })
                 
                 # Actualizar lags para siguiente iteración (predicción recursiva)
-                demandados_lag3 = demandados_lag2
-                demandados_lag3 = demandados_lag2
-                demandados_lag2 = demandados_lag1
-                demandados_lag1 = pred_demandados
-                demandados_ma3 = np.mean([demandados_lag1, demandados_lag2, demandados_lag3])
+                recientes_d = [recientes_d[-2], recientes_d[-1], pred_demandados]
             
             # Guardar predicciones futuras
             df_futuro_demandados = pd.DataFrame(predicciones_futuras_dem)
@@ -666,6 +678,9 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
         valid_codes = counts[counts >= min_samples].index.tolist()
         if len(valid_codes) < 2:
             return None
+        discarded = counts[counts < min_samples]
+        if not discarded.empty:
+            print(f"      [INFO] {target_col}: se descartan {len(discarded)} clases con soporte < {min_samples}")
         mask = target_series.isin(valid_codes)
         X_local = df.loc[mask, feature_cols].copy()
         y_codes = target_series[mask].copy()
@@ -690,7 +705,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
             clf = XGBClassifier(
                 n_estimators=100, max_depth=7, learning_rate=0.1,
                 subsample=0.9, colsample_bytree=0.8,
-                eval_metric='mlogloss', use_label_encoder=False,
+                eval_metric='mlogloss',
                 tree_method="hist"
             )
             clf.fit(X_train, y_train)
@@ -723,7 +738,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
             clf2 = XGBClassifier(
                 n_estimators=100, max_depth=7, learning_rate=0.1,
                 subsample=0.9, colsample_bytree=0.8,
-                eval_metric='mlogloss', use_label_encoder=False,
+                eval_metric='mlogloss',
                 tree_method="hist"
             )
             clf2.fit(X_train2, y_train2)
@@ -751,7 +766,7 @@ def entrenar_modelos_y_generar_predicciones(consolidado_path, output_dir=None, h
         scale_pos_weight = (y_train3 == 0).sum() / (y_train3 == 1).sum() if (y_train3 == 1).sum() > 0 else 1
         clf3 = XGBClassifier(n_estimators=100, max_depth=7, learning_rate=0.1,
                             subsample=0.9, colsample_bytree=0.8,
-                            eval_metric='auc', use_label_encoder=False,
+                            eval_metric='auc',
                             tree_method="hist", scale_pos_weight=scale_pos_weight)
         clf3.fit(X_train3, y_train3)
         y_pred3 = clf3.predict(X_test3)
