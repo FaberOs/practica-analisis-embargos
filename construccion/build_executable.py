@@ -1,13 +1,48 @@
 """
 Script para construir el ejecutable usando PyInstaller
-Ejecuta este script para generar el .exe
+Ejecuta este script desde la raíz del proyecto para generar el .exe
 """
 import PyInstaller.__main__
 import os
 import sys
 
-# Obtener la ruta del directorio actual
+# Obtener la ruta del directorio de construcción y la raíz del proyecto
 current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+
+# Rutas de los archivos fuente
+src_dir = os.path.join(project_root, "src")
+dashboards_dir = os.path.join(src_dir, "dashboards")
+orquestacion_dir = os.path.join(src_dir, "orquestacion")
+pipeline_ml_dir = os.path.join(src_dir, "pipeline_ml")
+
+# Archivos fuente
+launcher_path = os.path.join(orquestacion_dir, "launcher.py")
+utils_csv_path = os.path.join(orquestacion_dir, "utils_csv.py")
+dashboard_embargos_path = os.path.join(dashboards_dir, "dashboard_embargos.py")
+dashboard_predicciones_path = os.path.join(dashboards_dir, "dashboard_predicciones.py")
+dashboard_styles_path = os.path.join(dashboards_dir, "dashboard_styles.py")
+procesar_modelo_path = os.path.join(pipeline_ml_dir, "procesar_modelo.py")
+icon_path = os.path.join(project_root, "ob.ico")
+
+# Verificar que existen los archivos necesarios
+required_files = {
+    "launcher.py": launcher_path,
+    "utils_csv.py": utils_csv_path,
+    "dashboard_embargos.py": dashboard_embargos_path,
+    "dashboard_predicciones.py": dashboard_predicciones_path,
+    "dashboard_styles.py": dashboard_styles_path,
+    "procesar_modelo.py": procesar_modelo_path,
+}
+
+print("[INFO] Verificando archivos fuente...")
+for name, path in required_files.items():
+    if os.path.exists(path):
+        print(f"  [OK] {name}: {path}")
+    else:
+        print(f"  [ERROR] No encontrado: {name}")
+        print(f"         Esperado en: {path}")
+        sys.exit(1)
 
 # NOTA: Los archivos CSV NO se incluyen en el ejecutable
 # Los usuarios pueden agregarlos después usando la interfaz gráfica del launcher
@@ -15,17 +50,20 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construir los argumentos para PyInstaller
 args = [
-    "launcher.py",  # Script principal
+    launcher_path,  # Script principal (ruta completa)
     "--name=DashboardEmbargos",  # Nombre del ejecutable
     "--onefile",  # Un solo archivo ejecutable
     "--noconsole",  # Sin consola - la aplicación usa GUI (Tkinter)
-    # Incluir scripts necesarios
-    "--add-data=launcher.py;.",  # Incluir el launcher
-    "--add-data=dashboard_embargos.py;.",  # Incluir dashboard 1
-    "--add-data=dashboard_predicciones.py;.",  # Incluir dashboard 2
-    "--add-data=dashboard_styles.py;.",  # Estilos compartidos
-    "--add-data=procesar_modelo.py;.",  # Incluir script de procesamiento del modelo
-    "--add-data=utils_csv.py;.",  # Incluir utilidades CSV
+    f"--distpath={os.path.join(project_root, 'dist')}",  # Directorio de salida
+    f"--workpath={os.path.join(current_dir, 'build_temp')}",  # Directorio temporal
+    f"--specpath={current_dir}",  # Directorio del .spec
+    # Incluir scripts necesarios (todos en la raíz del ejecutable empaquetado)
+    f"--add-data={launcher_path};.",
+    f"--add-data={dashboard_embargos_path};.",
+    f"--add-data={dashboard_predicciones_path};.",
+    f"--add-data={dashboard_styles_path};.",
+    f"--add-data={procesar_modelo_path};.",
+    f"--add-data={utils_csv_path};.",
     # Imports ocultos necesarios
     "--hidden-import=streamlit",
     "--hidden-import=pandas",
@@ -38,23 +76,22 @@ args = [
     "--hidden-import=sklearn.model_selection",
     "--hidden-import=sklearn.metrics",
     "--hidden-import=xgboost.sklearn",
-    "--hidden-import=openpyxl",  # Para exportar a Excel
-    "--hidden-import=openpyxl.workbook",  # Módulos adicionales de openpyxl
-    "--hidden-import=openpyxl.worksheet",  # Módulos adicionales de openpyxl
-    "--hidden-import=openpyxl.cell",  # Módulos adicionales de openpyxl
+    "--hidden-import=openpyxl",
+    "--hidden-import=openpyxl.workbook",
+    "--hidden-import=openpyxl.worksheet",
+    "--hidden-import=openpyxl.cell",
     # Incluir todos los módulos de librerías grandes
-    "--collect-all=streamlit",  # Incluir todos los módulos de streamlit
-    "--collect-all=plotly",  # Incluir todos los módulos de plotly
-    "--collect-all=sklearn",  # Incluir todos los módulos de sklearn
-    "--collect-all=xgboost",  # Incluir todos los módulos y DLLs de xgboost
-    "--collect-all=openpyxl",  
-    "--collect-all=openpyxl",  # Incluir todos los módulos de openpyxl
+    "--collect-all=streamlit",
+    "--collect-all=plotly",
+    "--collect-all=sklearn",
+    "--collect-all=xgboost",
+    "--collect-all=openpyxl",
 ]
 
-icon_file = os.path.join(current_dir, "ob.ico")
-if os.path.exists(icon_file):
-    args.append(f"--icon={icon_file}")
-    args.append(f"--add-data={icon_file};.")
+if os.path.exists(icon_path):
+    args.append(f"--icon={icon_path}")
+    args.append(f"--add-data={icon_path};.")
+    print(f"  [OK] ob.ico: {icon_path}")
 else:
     args.append("--icon=NONE")
     print("[ADVERTENCIA] No se encontro ob.ico. El ejecutable usara el icono por defecto.")
@@ -87,7 +124,7 @@ except Exception as e:
     print("[INFO] El ejecutable puede fallar al usar XGBoost. Considera agregar la DLL manualmente.")
 
 # Verificar y eliminar ejecutable anterior si existe
-dist_path = os.path.join(current_dir, "dist", "DashboardEmbargos.exe")
+dist_path = os.path.join(project_root, "dist", "DashboardEmbargos.exe")
 if os.path.exists(dist_path):
     print("[INFO] Se encontro un ejecutable anterior en dist/DashboardEmbargos.exe")
     print("[INFO] Intentando eliminarlo...")

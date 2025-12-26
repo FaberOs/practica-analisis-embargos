@@ -10,6 +10,16 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
+# Agregar carpeta de orquestación al path para encontrar utils_csv
+orquestacion_dir = os.path.join(os.path.dirname(script_dir), 'orquestacion')
+if os.path.exists(orquestacion_dir) and orquestacion_dir not in sys.path:
+    sys.path.insert(0, orquestacion_dir)
+
+# Agregar raíz del proyecto al path (para compatibilidad)
+project_root = os.path.dirname(os.path.dirname(script_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 if getattr(sys, 'frozen', False):
     if hasattr(sys, '_MEIPASS'):
         if sys._MEIPASS not in sys.path:

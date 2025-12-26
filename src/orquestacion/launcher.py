@@ -34,10 +34,16 @@ def get_data_path():
                 return data_path
         return get_base_path()
     else:
-        return os.path.dirname(os.path.abspath(__file__))
+        # En modo desarrollo, usar la carpeta datos del proyecto
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.dirname(script_dir)
+        project_root = os.path.dirname(src_dir)
+        datos_dir = os.path.join(project_root, "datos")
+        os.makedirs(datos_dir, exist_ok=True)
+        return datos_dir
 
 def get_script_path(script_name):
-    """Obtiene la ruta del script, buscando en _MEIPASS si es ejecutable"""
+    """Obtiene la ruta del script, buscando en _MEIPASS si es ejecutable o en la estructura de carpetas en desarrollo"""
     if getattr(sys, 'frozen', False):
         meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
         script_path = os.path.join(meipass, script_name)
@@ -48,7 +54,39 @@ def get_script_path(script_name):
             return os.path.abspath(alt_path)
         return os.path.abspath(script_path)
     else:
-        return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), script_name))
+        # En modo desarrollo, buscar en la estructura de carpetas organizada
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.dirname(script_dir)  # carpeta src
+        project_root = os.path.dirname(src_dir)  # raíz del proyecto
+        
+        # Mapeo de scripts a sus ubicaciones en la estructura organizada
+        script_locations = {
+            'dashboard_embargos.py': os.path.join(src_dir, 'dashboards', 'dashboard_embargos.py'),
+            'dashboard_predicciones.py': os.path.join(src_dir, 'dashboards', 'dashboard_predicciones.py'),
+            'dashboard_styles.py': os.path.join(src_dir, 'dashboards', 'dashboard_styles.py'),
+            'dashboard_tabs_futuro.py': os.path.join(src_dir, 'dashboards', 'dashboard_tabs_futuro.py'),
+            'procesar_modelo.py': os.path.join(src_dir, 'pipeline_ml', 'procesar_modelo.py'),
+            'utils_csv.py': os.path.join(script_dir, 'utils_csv.py'),  # En orquestacion
+            'ob.ico': os.path.join(project_root, 'ob.ico'),
+        }
+        
+        if script_name in script_locations:
+            path = script_locations[script_name]
+            if os.path.exists(path):
+                return os.path.abspath(path)
+        
+        # Fallback: buscar en la misma carpeta
+        local_path = os.path.join(script_dir, script_name)
+        if os.path.exists(local_path):
+            return os.path.abspath(local_path)
+        
+        # Fallback: buscar en project_root (para retrocompatibilidad)
+        root_path = os.path.join(project_root, script_name)
+        if os.path.exists(root_path):
+            return os.path.abspath(root_path)
+        
+        # Retornar la ubicación esperada aunque no exista (para mensaje de error)
+        return script_locations.get(script_name, os.path.join(script_dir, script_name))
 
 
 def get_icon_path(icon_filename="ob.ico"):

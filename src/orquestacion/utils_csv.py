@@ -17,8 +17,11 @@ def get_base_path():
         else:
             return os.path.dirname(os.path.abspath(sys.executable))
     else:
-        # Si está ejecutándose como script
-        return os.path.dirname(os.path.abspath(__file__))
+        # Si está ejecutándose como script, retornar la raíz del proyecto
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        src_dir = os.path.dirname(script_dir)  # carpeta src
+        project_root = os.path.dirname(src_dir)  # raíz del proyecto
+        return project_root
 
 def get_data_path():
     """Obtiene la ruta donde se pueden escribir archivos CSV sin permisos de administrador"""
@@ -34,13 +37,11 @@ def get_data_path():
         # Fallback a la carpeta del ejecutable si no hay AppData
         return get_base_path()
     else:
-        # Si es script, usar la carpeta del proyecto (donde está el script)
-        # Esto asegura que los archivos generados estén en la misma ubicación
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        # Crear subcarpeta 'datos' si no existe (opcional, pero mejor organización)
-        datos_dir = os.path.join(script_dir, "datos")
-        # Por ahora, usar directamente la carpeta del proyecto para compatibilidad
-        return script_dir
+        # Si es script, usar la carpeta datos del proyecto
+        project_root = get_base_path()
+        datos_dir = os.path.join(project_root, "datos")
+        os.makedirs(datos_dir, exist_ok=True)
+        return datos_dir
 
 def find_csv_file(filename):
     """

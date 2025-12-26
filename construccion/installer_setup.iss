@@ -20,9 +20,9 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 LicenseFile=
-OutputDir=installer
+OutputDir=..\installer
 OutputBaseFilename=DashboardEmbargos_Installer
-SetupIconFile="ob.ico"
+SetupIconFile="..\ob.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -48,12 +48,13 @@ Name: "{app}\datos"; Flags: uninsneveruninstall
 
 [Files]
 ; Incluir el ejecutable principal (obligatorio - siempre incluir)
-Source: "dist\DashboardEmbargos.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Nota: El ejecutable está en la carpeta dist del proyecto padre
+Source: "..\dist\DashboardEmbargos.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTA: Los archivos CSV NO se incluyen en el instalador
 ; Los usuarios solo necesitan el CSV original de la BD (con años en el nombre, por semestres)
 ; El modelo procesará automáticamente los datos y generará los archivos necesarios
 ; Incluir documentación (solo si existe)
-Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
+Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 ; Archivos opcionales de documentación (descomentar si existen)
 ; Source: "INSTRUCCIONES_EJECUTABLE.md"; DestDir: "{app}"; Flags: ignoreversion
 ; Source: "INSTRUCCIONES_CSV.txt"; DestDir: "{app}\datos"; Flags: ignoreversion

@@ -117,7 +117,7 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 #### Opción 1: Usando el Launcher (Recomendado)
 
 ```bash
-python launcher.py
+python src/orquestacion/launcher.py
 ```
 
 Selecciona el dashboard que deseas ejecutar desde la interfaz gráfica.
@@ -126,10 +126,10 @@ Selecciona el dashboard que deseas ejecutar desde la interfaz gráfica.
 
 ```bash
 # Dashboard de Embargos
-streamlit run dashboard_embargos.py
+streamlit run src/dashboards/dashboard_embargos.py
 
 # Dashboard de Predicciones
-streamlit run dashboard_predicciones.py
+streamlit run src/dashboards/dashboard_predicciones.py
 ```
 
 Los dashboards se abrirán automáticamente en tu navegador en `http://localhost:8501` y `http://localhost:8502`.
@@ -192,7 +192,7 @@ No necesitas hacer nada manual, el programa los gestiona automáticamente.
 .\venv\Scripts\Activate.ps1
 
 # 2. Ejecutar script de construcción
-python build_executable.py
+python construccion/build_executable.py
 ```
 
 **Tiempo estimado:** 5-15 minutos  
@@ -302,44 +302,69 @@ El instalador incluirá:
 
 ```
 practica-analisis-embargos/
-├── Dashboards
-│   ├── dashboard_embargos.py              # Dashboard exploratorio (Streamlit)
-│   ├── dashboard_predicciones.py          # Dashboard de predicciones y métricas
-│   └── launcher.py                        # Launcher con interfaz gráfica
+├── 📊 src/dashboards/                     # Dashboards Streamlit
+│   ├── __init__.py
+│   ├── dashboard_embargos.py              # Dashboard exploratorio (1,700+ líneas)
+│   ├── dashboard_predicciones.py          # Dashboard de predicciones y métricas (1,450+ líneas)
+│   ├── dashboard_styles.py                # CSS centralizado (paleta corporativa)
+│   └── dashboard_tabs_futuro.py           # Componentes adicionales de tabs
 │
-├── Modelos y Procesamiento
-│   ├── modelos_ml_embargos.ipynb          # Notebook Jupyter (desarrollo)
-│   └── procesar_modelo.py                 # Script de procesamiento (usado por el ejecutable)
+├── 🤖 src/pipeline_ml/                    # Pipeline de Machine Learning
+│   ├── __init__.py
+│   ├── procesar_modelo.py                 # ETL + entrenamiento + predicción (866 líneas)
+│   └── modelos_ml_embargos.ipynb          # Notebook experimental (desarrollo)
 │
-├── Utilidades
-│   ├── utils_csv.py                       # Utilidades para búsqueda de CSV
-│   └── requirements.txt                   # Dependencias del proyecto
+├── 🎛️ src/orquestacion/                   # Orquestación y utilidades
+│   ├── __init__.py
+│   ├── launcher.py                        # GUI Tkinter (hub principal, 1,500+ líneas)
+│   └── utils_csv.py                       # Abstracción de rutas (dev vs ejecutable)
 │
-├── Herramientas de Compilación
-│   ├── build_executable.py                # Script para crear el ejecutable
-│   ├── installer_setup.iss                # Script de Inno Setup para el instalador
-│   └── DashboardEmbargos.spec             # Configuración de PyInstaller (generado)
+├── 📁 datos/                              # Datos generados (output)
+│   ├── embargos_consolidado_mensual.csv
+│   ├── predicciones_oficios_validacion.csv
+│   ├── predicciones_oficios_futuro.csv
+│   ├── predicciones_demandados_validacion.csv
+│   ├── predicciones_demandados_futuro.csv
+│   └── resultados_clasificaciones.csv
 │
-├── Distribución (generados después de compilar)
-│   ├── dist/
-│   │   └── DashboardEmbargos.exe          # EJECUTABLE FINAL
-│   └── installer/
-│       └── DashboardEmbargos_Installer.exe # INSTALADOR FINAL
+├── 🧪 tests/                              # Tests automatizados
+│   ├── __init__.py
+│   ├── test_dashboard_load.py             # Validación carga CSV
+│   ├── test_matrices_load.py              # Deserialización JSON
+│   └── test_predicciones_futuras.py       # Pipeline completo
 │
-└── Documentación
-    └── README.md                           # Este archivo (guía completa)
+├── 📦 construccion/                       # Herramientas de construcción
+│   ├── build_executable.py                # Script PyInstaller
+│   ├── DashboardEmbargos.spec             # Configuración PyInstaller
+│   └── installer_setup.iss                # Configuración Inno Setup
+│
+├── 📝 docs/                               # Documentación técnica
+│   ├── INFORME_PROYECTO_DASHBOARD_EMBARGOS.md
+│   ├── ANALISIS_COLUMNAS.md
+│   ├── GUIA_CREAR_INSTALADOR.md
+│   └── HISTORIAL_DE_CAMBIOS_Y_MEJORAS.md
+│
+├── 📦 dist/                               # Distribución (generado)
+│   └── DashboardEmbargos.exe              # Ejecutable final
+│
+├── ob.ico                                 # Icono de la aplicación
+├── README.md                              # Este archivo
+└── requirements.txt                       # Dependencias Python
 ```
 
 ### Archivos Necesarios para el Ejecutable
 
-- `launcher.py`, `dashboard_embargos.py`, `dashboard_predicciones.py`, `procesar_modelo.py`, `utils_csv.py`
+- `src/orquestacion/launcher.py` - Punto de entrada
+- `src/dashboards/dashboard_embargos.py`, `dashboard_predicciones.py`, `dashboard_styles.py`
+- `src/pipeline_ml/procesar_modelo.py`
+- `src/orquestacion/utils_csv.py`
 - Estos archivos se empaquetan dentro del ejecutable
 
 ### Archivos SOLO para Desarrollo
 
-- Scripts de compilación: `build_executable.py`, `installer_setup.iss`
-- Configuración: `DashboardEmbargos.spec` (se regenera automáticamente)
-- Notebook: `modelos_ml_embargos.ipynb` (solo para desarrollo)
+- Scripts de compilación: `construccion/build_executable.py`, `construccion/installer_setup.iss`
+- Configuración: `construccion/DashboardEmbargos.spec` (se regenera automáticamente)
+- Notebook: `src/pipeline_ml/modelos_ml_embargos.ipynb` (solo para desarrollo)
 - Carpeta `build/` - Archivos temporales de PyInstaller (se puede eliminar)
 - Carpeta `venv/` - Entorno virtual (solo para desarrollo)
 

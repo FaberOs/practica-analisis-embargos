@@ -11,7 +11,9 @@ ENV/
 # Archivos de compilación PyInstaller
 build/
 dist/
+construccion/build_temp/
 *.spec
+!construccion/DashboardEmbargos.spec
 
 # Instaladores compilados
 installer/
@@ -47,6 +49,7 @@ desktop.ini
 *.log
 compilacion_log.txt
 streamlit_*.log
+datos/*.log
 
 # Archivos de documentación temporales
 CREAR_*.md
@@ -55,9 +58,11 @@ SOLUCION_*.md
 DOCUMENTACION_*.md
 INSTRUCCIONES_*.txt
 
-# Scripts temporales de compilación
+# Scripts temporales de compilación (permitir los de construccion/)
 *.bat
 *.ps1
+!construccion/*.bat
+!construccion/*.ps1
 
 # Archivos temporales de prueba
 test_*.py
