@@ -1,2 +1,110 @@
+# Archivos CSV (generados automáticamente)
 *.csv
+!requirements.txt
+
+# Entorno virtual
 venv/
+env/
+ENV/
+.venv/
+
+# Archivos de compilación PyInstaller
+build/
+dist/
+construccion/build_temp/
+*.spec
+!construccion/DashboardEmbargos.spec
+
+# Instaladores compilados
+installer/
+dist_instalador/
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+desktop.ini
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Archivos de Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Archivos de log
+*.log
+compilacion_log.txt
+streamlit_*.log
+datos/*.log
+
+# Archivos de documentación temporales
+CREAR_*.md
+INSTRUCCIONES_*.md
+SOLUCION_*.md
+DOCUMENTACION_*.md
+INSTRUCCIONES_*.txt
+
+# Scripts temporales de compilación (permitir los de construccion/)
+*.bat
+*.ps1
+!construccion/*.bat
+!construccion/*.ps1
+
+# Archivos temporales de prueba (permitir los de tests/)
+test_*.py
+*_test.py
+!tests/test_*.py
+!tests/*_test.py
+!tests/generar_evidencias_validacion.py
+
+# Evidencias de validación generadas (imágenes y JSON)
+docs/evidencias_validacion/
+
+# Archivos ZIP temporales
+*.zip
+*.tar.gz
+*.rar
+
+# Archivos de datos del usuario (AppData)
+datos/
+data/
+
+# Archivos de configuración local
+.env
+.env.local
+config.local.py
+
+# Archivos de backup
+*.bak
+*.backup
+*~
+
+# Archivos de caché
+.cache/
+*.cache
+
+# Archivos de sistema Windows
+$RECYCLE.BIN/
+*.lnk
+
+# Archivos de macOS
+.AppleDouble
+.LSOverride
+
+# Archivos de Linux
+*~
+.directory
