@@ -797,9 +797,6 @@ if selected_tab == "Oficios":
     styled_df = df_display.style.map(
         color_confianza, 
         subset=['Confianza']
-    ).background_gradient(
-        subset=['Predicción'],
-        cmap='Blues'
     )
     
     st.dataframe(styled_df, use_container_width=True, height=450)
@@ -988,9 +985,6 @@ elif selected_tab == "Demandados":
     styled_df_dem = df_display_dem.style.map(
         color_confianza_dem, 
         subset=['Confianza']
-    ).background_gradient(
-        subset=['Predicción'],
-        cmap='Reds'
     )
     
     st.dataframe(styled_df_dem, use_container_width=True, height=450)

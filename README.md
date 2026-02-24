@@ -1,6 +1,32 @@
+<p align="center">
+  <img src="assets/HeroImage.png" alt="Dashboard de Análisis de Embargos Bancarios" width="100%"/>
+</p>
+
 # Dashboard de Análisis de Embargos Bancarios
 
-Sistema completo para la consolidación, visualización interactiva y modelado predictivo de oficios bancarios (embargos, desembargos y requerimientos) usando Python, Streamlit y Machine Learning.
+## Descripción del Proyecto
+
+Sistema integral de consolidación, análisis exploratorio, modelado predictivo y distribución de oficios bancarios (embargos, desembargos y requerimientos) para el sector financiero colombiano, desarrollado con Python, Streamlit, XGBoost y metodología CRISP-DM.
+
+El proyecto nace de la necesidad de las áreas legales, de riesgos y TI de organizar, estandarizar y anticipar la carga operativa mensual de embargos bancarios. A partir de archivos CSV semestrales extraídos de la base de datos, el sistema ejecuta un pipeline completo de ETL, entrenamiento de modelos de machine learning (regresión y clasificación), generación de predicciones y visualización interactiva mediante dos dashboards especializados. Todo se empaqueta en un ejecutable autónomo con instalador para Windows, sin requerir Python ni dependencias adicionales en el equipo del usuario final.
+
+### ¿Qué hace este proyecto?
+
+1. **Consolida** múltiples CSVs semestrales en un dataset mensual limpio y estandarizado
+2. **Entrena** modelos XGBoost de regresión (predicción de volumen de oficios y demandados) y clasificación (tipo de embargo, estado, cliente/no cliente)
+3. **Genera predicciones** a 12 meses con intervalos de confianza y niveles de certeza
+4. **Visualiza** resultados en dashboards interactivos con filtros, KPIs, gráficas Plotly y tablas exportables
+5. **Distribuye** como ejecutable Windows independiente con instalador profesional
+
+### Casos de Uso
+
+- Anticipar el volumen mensual de embargos y oficios por ciudad, banco y entidad remitente
+- Detectar estacionalidad y anomalías en los datos históricos
+- Evaluar la precisión de los modelos con métricas de validación (MAE, RMSE, MAPE, F1-score)
+- Visualizar matrices de confusión y rankings relevantes para la operación
+- Distribuir como herramienta lista para usar sin requerir Python instalado
+
+---
 
 ## Tabla de Contenidos
 
@@ -12,21 +38,9 @@ Sistema completo para la consolidación, visualización interactiva y modelado p
 - [Crear el Ejecutable](#crear-el-ejecutable)
 - [Crear el Instalador](#crear-el-instalador)
 - [Estructura del Proyecto](#estructura-del-proyecto)
+- [Tests](#tests)
 - [Solución de Problemas](#solución-de-problemas)
 - [Referencias](#referencias)
-
----
-
-## Descripción del Proyecto
-
-Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga operativa de embargos bancarios mensuales en el sector financiero colombiano. Aplica la metodología CRISP-DM para limpiar y consolidar los datos históricos de oficios bancarios, genera dashboards interactivos para análisis exploratorio y entrena modelos de machine learning para pronóstico y clasificación.
-
-### Casos de Uso
-
-- Anticipar el volumen mensual de embargos y otros oficios por ciudad, banco y entidad remitente
-- Detectar estacionalidad y anomalías en los datos
-- Visualizar métricas y rankings relevantes para áreas legales, de riesgos y TI
-- Distribuir como ejecutable independiente sin requerir Python instalado
 
 ---
 
@@ -34,21 +48,28 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 ### Dashboards Interactivos
 
-- **Dashboard de Embargos**: Análisis exploratorio con filtros interactivos, KPIs, gráficas y tablas detalladas
-- **Dashboard de Predicciones**: Visualización de modelos ML, métricas de desempeño y comparación de predicciones vs reales
+- **Dashboard de Embargos** (~1,600 líneas): Análisis exploratorio con 6 filtros combinables (banco, ciudad, estado, tipo, mes, tipo de documento), KPIs dinámicos, Top 10 (entidades, ciudades, funcionarios, remitentes), gráficas de distribución y evolución mensual, búsqueda por texto y exportación a Excel
+- **Dashboard de Predicciones** (~1,450 líneas): Predicciones futuras con bandas de confianza, validación histórica (real vs predicción), métricas de error (MAE, RMSE, MAPE), matrices de confusión interactivas con análisis automático de patrones de confusión, y tooltips contextuales para cada métrica
 
-### Modelos de Machine Learning
+### Pipeline de Machine Learning
 
-- **Regresión XGBoost**: Predicción de volumen de oficios y demandados por mes
-- **Clasificación**: Modelos para categorización de embargos (tipo, estado, cliente/no cliente)
-- **Métricas completas**: MAE, RMSE, R², precisión, recall, F1-score
+- **Regresión XGBoost**: Predicción de volumen de oficios y demandados por mes con features temporales y variables de rezago
+- **Clasificación XGBoost**: Modelos para categorización de embargos (tipo, estado, cliente/no cliente) con matrices de confusión serializadas
+- **Validación robusta**: Backtesting con último año conocido, métricas completas (MAE, RMSE, R², precisión, recall, F1-score)
+- **Predicciones a 12 meses**: Con intervalos de confianza al 95% y niveles de certeza (Alta, Media, Baja)
+
+### Interfaz de Orquestación
+
+- **Launcher GUI (Tkinter)**: Hub central para seleccionar CSVs, monitorear el estado de archivos generados, lanzar dashboards y recalcular modelos
+- **Detección automática de puertos**: Los dashboards Streamlit se lanzan en puertos disponibles sin conflictos
+- **Compatibilidad dual**: Funciona idéntico en modo desarrollo (scripts) y modo producción (ejecutable PyInstaller)
 
 ### Distribución
 
-- **Ejecutable independiente**: No requiere Python instalado
-- **Instalador Windows**: Instalación profesional con Inno Setup
-- **Procesamiento automático**: Solo necesitas el CSV original de la BD, el modelo procesa automáticamente
-- **Recálculo fácil**: Botón para regenerar archivos con nuevos datos
+- **Ejecutable independiente**: Un solo archivo `.exe` que incluye Python, Streamlit, pandas, Plotly, scikit-learn, XGBoost y openpyxl
+- **Instalador Windows**: Generado con Inno Setup, con accesos directos y desinstalador automático
+- **Procesamiento automático**: Solo necesitas el CSV original de la BD, el pipeline procesa todo
+- **Recálculo fácil**: Botón para regenerar todos los archivos con datos nuevos
 
 ---
 
@@ -60,6 +81,18 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 - **Windows 10 o superior** (para ejecutables)
 - **4 GB RAM mínimo** (8 GB recomendado)
 - **500 MB espacio en disco** (para ejecutables)
+
+### Dependencias (desarrollo)
+
+```
+streamlit
+pandas
+numpy
+plotly
+scikit-learn
+xgboost
+openpyxl
+```
 
 ### Instalación para Desarrollo
 
@@ -74,7 +107,7 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
    # Windows
    python -m venv venv
    venv\Scripts\activate
-   
+
    # Linux/Mac
    python3 -m venv venv
    source venv/bin/activate
@@ -88,14 +121,9 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 ### Instalación para Usuario Final
 
-1. **Descargar el instalador:**
-   - `DashboardEmbargos_Installer.exe` desde la carpeta `installer\`
-
-2. **Ejecutar el instalador:**
-   - Seguir el asistente de instalación
-   - El programa se instalará en `Program Files\Dashboard de Embargos Bancarios`
-
-3. **¡Listo!** No se requiere Python ni dependencias adicionales.
+1. **Descargar el instalador** `DashboardEmbargos_Installer.exe` desde la carpeta `installer/`
+2. **Ejecutar el instalador** y seguir el asistente (se instala en `Program Files\Dashboard de Embargos Bancarios`)
+3. **¡Listo!** No se requiere Python ni dependencias adicionales
 
 ---
 
@@ -105,12 +133,12 @@ Este proyecto aborda la necesidad de organizar, estandarizar y predecir la carga
 
 1. **Ejecutar** `DashboardEmbargos.exe` (desde el menú de inicio o escritorio)
 2. **Seleccionar** el/los archivo(s) CSV original(es) de la BD (con años en el nombre, por semestres)
-   - Ejemplo: `consulta detalle embargos-2023-01.csv`
+   - Ejemplo: `consulta detalle embargos-2023-01.csv`, `consulta detalle embargos-2024-02.csv`
 3. **Iniciar** el dashboard deseado:
    - **Dashboard de Embargos**: Análisis exploratorio
    - **Dashboard de Predicciones**: Modelos ML y predicciones
-4. El modelo **procesará automáticamente** los datos y generará los archivos necesarios
-5. Los dashboards se abrirán con los datos procesados
+4. El pipeline **procesará automáticamente** los datos y generará los archivos necesarios
+5. Los dashboards se abrirán en el navegador con los datos procesados
 
 ### Para Desarrolladores
 
@@ -142,23 +170,23 @@ Los dashboards se abrirán automáticamente en tu navegador en `http://localhost
 
 El ejecutable se encuentra en: **`dist\DashboardEmbargos.exe`**
 
-Puedes:
-- **Usarlo directamente desde ahí**, o
-- **Copiarlo a otra ubicación** (por ejemplo, Escritorio o una carpeta de instalación)
+Puedes usarlo directamente desde ahí o copiarlo a otra ubicación (por ejemplo, Escritorio).
 
 ### Archivos CSV Necesarios
 
 **IMPORTANTE**: El ejecutable **NO** requiere archivos CSV pre-generados. Solo necesitas:
 
-- **CSV original de la BD**: Archivos con años en el nombre (por semestres)
+- **CSV original de la BD**: Archivos semestrales con años en el nombre
   - Ejemplo: `consulta detalle embargos-2023-01.csv`
-  - Ejemplo: `consulta detalle embargos-2023-02.csv`
+  - Ejemplo: `consulta detalle embargos-2024-02.csv`
 
-El modelo procesará automáticamente estos archivos y generará:
-- `embargos_consolidado_mensual.csv`
-- `predicciones_oficios_por_mes.csv`
-- `predicciones_demandados_por_mes.csv`
-- `resultados_clasificaciones.csv`
+El pipeline procesará automáticamente estos archivos y generará:
+- `embargos_consolidado_mensual.csv` — Dataset consolidado mensual
+- `predicciones_oficios_validacion.csv` — Backtesting oficios
+- `predicciones_oficios_futuro.csv` — Predicciones a 12 meses (oficios)
+- `predicciones_demandados_validacion.csv` — Backtesting demandados
+- `predicciones_demandados_futuro.csv` — Predicciones a 12 meses (demandados)
+- `resultados_clasificaciones.csv` — Métricas y matrices de confusión
 
 ### Funcionalidades del Launcher
 
@@ -195,47 +223,36 @@ No necesitas hacer nada manual, el programa los gestiona automáticamente.
 python construccion/build_executable.py
 ```
 
-**Tiempo estimado:** 5-15 minutos  
+**Tiempo estimado:** 5-15 minutos
 **Resultado:** `dist\DashboardEmbargos.exe` (200-500 MB)
 
 ### Características del Ejecutable
 
 - **Independiente**: No requiere Python ni dependencias instaladas
-- **Menú interactivo**: Interfaz gráfica para seleccionar CSV y dashboards
+- **Menú interactivo**: Interfaz gráfica Tkinter para seleccionar CSV y dashboards
 - **Portable**: Un solo archivo ejecutable
-- **Completo**: Incluye todos los módulos necesarios (Streamlit, pandas, plotly, sklearn, xgboost)
+- **Completo**: Incluye todos los módulos necesarios (Streamlit, pandas, Plotly, scikit-learn, XGBoost, openpyxl)
 - **Procesamiento automático**: Solo necesitas el CSV original de la BD
 
-### Archivos Incluidos en el Ejecutable
+### Archivos Empaquetados en el Ejecutable
 
-El ejecutable incluye automáticamente:
-- `launcher.py` - Launcher principal
-- `dashboard_embargos.py` - Dashboard de embargos
-- `dashboard_predicciones.py` - Dashboard de predicciones
-- `procesar_modelo.py` - Script de procesamiento del modelo
-- `utils_csv.py` - Utilidades CSV
-- Todas las dependencias de Python (pandas, numpy, plotly, streamlit, sklearn, xgboost, etc.)
+- `launcher.py` — Punto de entrada (GUI Tkinter)
+- `dashboard_embargos.py` — Dashboard exploratorio
+- `dashboard_predicciones.py` — Dashboard de predicciones
+- `dashboard_styles.py` — Estilos CSS centralizados
+- `procesar_modelo.py` — Pipeline ETL + ML
+- `utils_csv.py` — Abstracción de rutas
+- `ob.ico` — Icono de la aplicación
+- DLL de XGBoost y todas las dependencias de Python
 
 ### Solución de Problemas al Compilar
 
-#### Error: "PyInstaller no encontrado"
-```powershell
-pip install pyinstaller
-```
-
-#### Error: "Módulo no encontrado"
-Asegúrate de tener todas las dependencias instaladas:
-```powershell
-pip install -r requirements.txt
-```
-
-#### Error: "Acceso denegado" al compilar
-1. Cierra el ejecutable `DashboardEmbargos.exe` si está corriendo
-2. Cierra cualquier dashboard de Streamlit que esté abierto
-3. Vuelve a ejecutar: `python build_executable.py`
-
-#### El ejecutable es muy grande
-Es normal. El ejecutable incluye Python y todas las librerías (200-500 MB).
+| Problema | Solución |
+|---|---|
+| PyInstaller no encontrado | `pip install pyinstaller` |
+| Módulo no encontrado | `pip install -r requirements.txt` |
+| Acceso denegado | Cierra el `.exe` y los dashboards abiertos, reintenta |
+| Ejecutable muy grande | Es normal (200-500 MB), incluye Python completo y librerías |
 
 ---
 
@@ -243,58 +260,31 @@ Es normal. El ejecutable incluye Python y todas las librerías (200-500 MB).
 
 ### Requisitos Previos
 
-1. **Inno Setup Compiler** (gratuito)
-   - Descargar desde: https://jrsoftware.org/isinfo.php
-   - Instalar la versión más reciente
-
-2. **Ejecutable creado**
-   - Asegúrate de haber ejecutado `build_executable.py` primero
-   - El archivo `dist\DashboardEmbargos.exe` debe existir
+1. **Inno Setup Compiler** (gratuito) — Descargar desde: https://jrsoftware.org/isinfo.php
+2. **Ejecutable creado** — `dist\DashboardEmbargos.exe` debe existir
 
 ### Método Rápido
 
 ```powershell
-# Verificar que Inno Setup esté instalado
-$innoPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if (Test-Path $innoPath) {
-    & $innoPath "installer_setup.iss"
-} else {
-    Write-Host "Inno Setup no encontrado. Instálalo desde: https://jrsoftware.org/isinfo.php"
-}
+# Usando el script de PowerShell
+.\construccion\crear_instalador.ps1
+
+# O directamente con Inno Setup
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "construccion\installer_setup.iss"
 ```
 
-**Tiempo estimado:** 2-5 minutos  
+**Tiempo estimado:** 2-5 minutos
 **Resultado:** `installer\DashboardEmbargos_Installer.exe`
 
-### Estructura del Instalador
+### Contenido del Instalador
 
-El instalador incluirá:
-- `DashboardEmbargos.exe` - El ejecutable principal (incluye todas las dependencias)
-- Documentación (README.md)
+- `DashboardEmbargos.exe` — Ejecutable principal (autónomo)
 - Carpeta `datos` con instrucciones
-- Accesos directos en el escritorio y menú de inicio
+- Accesos directos en escritorio y menú de inicio
 - Desinstalador automático
+- Soporte para español e inglés
 
-**NOTA IMPORTANTE:**
-- Los archivos CSV NO se incluyen en el instalador
-- El usuario solo necesita el CSV original de la BD (con años en el nombre)
-- El modelo procesará los datos automáticamente
-- El ejecutable es completamente autónomo (no requiere Python instalado)
-
-### Solución de Problemas al Compilar el Instalador
-
-#### Error: "No se encontró ISCC.exe"
-- Verifica que Inno Setup esté instalado
-- La ruta típica es: `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`
-
-#### Error: "No se encontró DashboardEmbargos.exe"
-- Ejecuta primero `build_executable.py`
-- Verifica que el archivo exista en `dist\DashboardEmbargos.exe`
-
-#### El instalador tarda mucho tiempo
-- Ya está configurado con compresión rápida (`lzma2`)
-- Tiempo esperado: 2-5 minutos
-- Si tarda más de 10 minutos, verifica que el proceso no esté colgado
+> **Nota:** Los archivos CSV NO se incluyen. El usuario solo necesita el CSV original de la BD.
 
 ---
 
@@ -302,71 +292,91 @@ El instalador incluirá:
 
 ```
 practica-analisis-embargos/
+│
 ├── 📊 src/dashboards/                     # Dashboards Streamlit
 │   ├── __init__.py
-│   ├── dashboard_embargos.py              # Dashboard exploratorio (1,700+ líneas)
-│   ├── dashboard_predicciones.py          # Dashboard de predicciones y métricas (1,450+ líneas)
-│   ├── dashboard_styles.py                # CSS centralizado (paleta corporativa)
+│   ├── dashboard_embargos.py              # Dashboard exploratorio (~1,600 líneas)
+│   ├── dashboard_predicciones.py          # Dashboard de predicciones (~1,450 líneas)
+│   ├── dashboard_styles.py               # CSS centralizado (paleta corporativa, ~450 líneas)
 │   └── dashboard_tabs_futuro.py           # Componentes adicionales de tabs
 │
 ├── 🤖 src/pipeline_ml/                    # Pipeline de Machine Learning
 │   ├── __init__.py
-│   ├── procesar_modelo.py                 # ETL + entrenamiento + predicción (866 líneas)
+│   ├── procesar_modelo.py                 # ETL + entrenamiento + predicción (~870 líneas)
 │   └── modelos_ml_embargos.ipynb          # Notebook experimental (desarrollo)
 │
 ├── 🎛️ src/orquestacion/                   # Orquestación y utilidades
 │   ├── __init__.py
-│   ├── launcher.py                        # GUI Tkinter (hub principal, 1,500+ líneas)
-│   └── utils_csv.py                       # Abstracción de rutas (dev vs ejecutable)
+│   ├── launcher.py                        # GUI Tkinter - hub principal (~1,580 líneas)
+│   └── utils_csv.py                       # Abstracción de rutas dev/exe (~210 líneas)
 │
-├── 📁 datos/                              # Datos generados (output)
-│   ├── embargos_consolidado_mensual.csv
-│   ├── predicciones_oficios_validacion.csv
-│   ├── predicciones_oficios_futuro.csv
-│   ├── predicciones_demandados_validacion.csv
-│   ├── predicciones_demandados_futuro.csv
-│   └── resultados_clasificaciones.csv
-│
-├── 🧪 tests/                              # Tests automatizados
+├── 🧪 tests/                              # Tests y validación
 │   ├── __init__.py
-│   ├── test_dashboard_load.py             # Validación carga CSV
-│   ├── test_matrices_load.py              # Deserialización JSON
-│   └── test_predicciones_futuras.py       # Pipeline completo
+│   ├── test_dashboard_load.py             # Validación de carga de CSV y columnas
+│   ├── test_matrices_load.py              # Deserialización de matrices de confusión JSON
+│   ├── test_predicciones_futuras.py       # Test end-to-end del pipeline completo
+│   └── generar_evidencias_validacion.py   # Genera evidencias de backtesting (~550 líneas)
 │
 ├── 📦 construccion/                       # Herramientas de construcción
-│   ├── build_executable.py                # Script PyInstaller
-│   ├── DashboardEmbargos.spec             # Configuración PyInstaller
-│   └── installer_setup.iss                # Configuración Inno Setup
+│   ├── build_executable.py                # Script de compilación PyInstaller
+│   ├── DashboardEmbargos.spec             # Configuración PyInstaller (auto-generado)
+│   ├── installer_setup.iss                # Configuración Inno Setup
+│   ├── crear_instalador.bat               # Script batch para crear instalador
+│   └── crear_instalador.ps1               # Script PowerShell para crear instalador
 │
 ├── 📝 docs/                               # Documentación técnica
 │   ├── INFORME_PROYECTO_DASHBOARD_EMBARGOS.md
 │   ├── ANALISIS_COLUMNAS.md
-│   ├── GUIA_CREAR_INSTALADOR.md
-│   └── HISTORIAL_DE_CAMBIOS_Y_MEJORAS.md
+│   ├── EVIDENCIAS_VALIDACION.md
+│   └── GUIA_CREAR_INSTALADOR.md
 │
-├── 📦 dist/                               # Distribución (generado)
-│   └── DashboardEmbargos.exe              # Ejecutable final
+├── 🖼️ assets/                              # Recursos gráficos
+│   └── HeroImage.png                      # Imagen de portada del proyecto
+│
+├── 📁 datos/                              # Datos generados (output, no versionados)
+├── 📦 dist/                               # Ejecutable compilado (no versionado)
+├── 📦 installer/                          # Instalador compilado (no versionado)
 │
 ├── ob.ico                                 # Icono de la aplicación
 ├── README.md                              # Este archivo
-└── requirements.txt                       # Dependencias Python
+├── requirements.txt                       # Dependencias Python
+└── .gitignore                             # Reglas de exclusión de Git
 ```
 
 ### Archivos Necesarios para el Ejecutable
 
-- `src/orquestacion/launcher.py` - Punto de entrada
+- `src/orquestacion/launcher.py` — Punto de entrada
 - `src/dashboards/dashboard_embargos.py`, `dashboard_predicciones.py`, `dashboard_styles.py`
 - `src/pipeline_ml/procesar_modelo.py`
 - `src/orquestacion/utils_csv.py`
-- Estos archivos se empaquetan dentro del ejecutable
+- Todos se empaquetan automáticamente dentro del ejecutable
 
-### Archivos SOLO para Desarrollo
+### Archivos Solo para Desarrollo
 
-- Scripts de compilación: `construccion/build_executable.py`, `construccion/installer_setup.iss`
-- Configuración: `construccion/DashboardEmbargos.spec` (se regenera automáticamente)
-- Notebook: `src/pipeline_ml/modelos_ml_embargos.ipynb` (solo para desarrollo)
-- Carpeta `build/` - Archivos temporales de PyInstaller (se puede eliminar)
-- Carpeta `venv/` - Entorno virtual (solo para desarrollo)
+- `construccion/` — Scripts de compilación y configuración del instalador
+- `src/pipeline_ml/modelos_ml_embargos.ipynb` — Notebook de experimentación
+- `build/` — Archivos temporales de PyInstaller (se puede eliminar)
+- `venv/` — Entorno virtual (no versionado)
+
+---
+
+## Tests
+
+El proyecto incluye tests de validación en la carpeta `tests/`:
+
+| Test | Descripción |
+|---|---|
+| `test_dashboard_load.py` | Verifica la carga correcta de CSVs con múltiples codificaciones y valida columnas críticas |
+| `test_matrices_load.py` | Comprueba la deserialización de matrices de confusión almacenadas como JSON en el CSV |
+| `test_predicciones_futuras.py` | Test end-to-end: ejecuta el pipeline completo y verifica que se generen los 5 archivos de salida con columnas correctas |
+| `generar_evidencias_validacion.py` | Genera evidencias de backtesting con matplotlib: gráficas real vs predicción, métricas de error y exporta estadísticas a JSON |
+
+```bash
+# Ejecutar tests
+python tests/test_dashboard_load.py
+python tests/test_matrices_load.py
+python tests/test_predicciones_futuras.py
+```
 
 ---
 
@@ -387,49 +397,28 @@ practica-analisis-embargos/
 **Problema:** El procesamiento falla con error de XGBoost DLL
 
 **Solución:**
-1. Recompila el ejecutable con los cambios más recientes
-2. El script `build_executable.py` ahora incluye automáticamente las DLLs de XGBoost
-3. Ejecuta: `python build_executable.py`
+1. Recompila el ejecutable con `python construccion/build_executable.py`
+2. El script incluye automáticamente las DLLs de XGBoost
 
 ### El dashboard no muestra datos
 
-**Problema:** El dashboard se abre pero muestra "No se encontraron registros"
-
 **Solución:**
 1. Verifica que el procesamiento se haya completado correctamente
-2. Revisa la ventana de progreso para ver si hubo errores
-3. Usa el botón "Recalcular Archivos" para regenerar los datos
-4. Verifica que el CSV original tenga el formato correcto
+2. Usa el botón "Recalcular Archivos" para regenerar los datos
+3. Verifica que el CSV original tenga el formato correcto
 
 ### El ejecutable no inicia
 
-**Problema:** Al hacer doble clic, no pasa nada o aparece un error
-
 **Solución:**
-1. Verifica que tengas permisos de ejecución
-2. Si Windows muestra una advertencia de seguridad, haz clic en "Más información" y luego "Ejecutar de todas formas"
-3. Verifica que no falten dependencias del sistema (normalmente no debería ser necesario)
-4. Prueba ejecutar desde la línea de comandos para ver errores
-
-### El procesamiento tarda mucho tiempo
-
-**Problema:** El procesamiento parece estar colgado
-
-**Solución:**
-1. El procesamiento puede tardar varios minutos dependiendo del tamaño de los CSV
-2. Revisa la ventana de progreso para ver los mensajes
-3. Si no hay progreso después de 10 minutos, cancela y verifica los CSV originales
-4. Asegúrate de tener al menos 2 años de datos para entrenar los modelos de regresión
+1. Si Windows muestra advertencia de seguridad, haz clic en "Más información" → "Ejecutar de todas formas"
+2. Prueba ejecutar desde la línea de comandos para ver errores detallados
 
 ### Los archivos de predicciones no se generan
 
-**Problema:** Solo se genera `embargos_consolidado_mensual.csv`, pero no los de predicciones
-
 **Solución:**
 1. Esto es normal si solo tienes datos de 1 año
-2. Los modelos de regresión requieren al menos 2 años de datos
+2. Los modelos de regresión requieren al menos 2 años de datos para entrenarse
 3. El dashboard de embargos funcionará con solo el archivo consolidado
-4. Para obtener predicciones, necesitas datos de múltiples años
 
 ---
 
@@ -440,20 +429,20 @@ practica-analisis-embargos/
 - Documentación Streamlit: https://docs.streamlit.io/
 - Documentación PyInstaller: https://pyinstaller.org/
 - Documentación Inno Setup: https://jrsoftware.org/isinfo.php
-- Géron, A. Hands-on Machine Learning with Scikit-Learn, Keras, and TensorFlow (O'Reilly, 2019)
-- Raschka, S.; Mirjalili, V. Python Machine Learning (Packt, 2019)
+- Géron, A. *Hands-on Machine Learning with Scikit-Learn, Keras, and TensorFlow* (O'Reilly, 2019)
+- Raschka, S.; Mirjalili, V. *Python Machine Learning* (Packt, 2019)
 
 ---
 
 ## Licencia
 
-MIT License. Desarrollado por Faber Ospina
+MIT License. Desarrollado por Faber Ospina.
 
 ---
 
 ## Contribuciones
 
-Las contribuciones son bienvenidas. Por favor:
+Las contribuciones son bienvenidas:
 
 1. Fork el proyecto
 2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -473,6 +462,6 @@ Para problemas o preguntas:
 
 ---
 
-**Última actualización:** 2025-01-XX  
-**Versión:** 2.1  
+**Última actualización:** Febrero 2026
+**Versión:** 2.2
 **Estado:** Producción

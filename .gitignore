@@ -64,13 +64,6 @@ INSTRUCCIONES_*.txt
 !construccion/*.bat
 !construccion/*.ps1
 
-# Archivos temporales de prueba (permitir los de tests/)
-test_*.py
-*_test.py
-!tests/test_*.py
-!tests/*_test.py
-!tests/generar_evidencias_validacion.py
-
 # Evidencias de validación generadas (imágenes y JSON)
 docs/evidencias_validacion/
 
