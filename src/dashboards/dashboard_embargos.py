@@ -466,9 +466,6 @@ def main():
         if st.button("Dashboard Principal", key="nav_dashboard", use_container_width=True):
             st.session_state.selected_tab = "Dashboard Principal"
         
-        if st.button("Tendencias y Rankings", key="nav_tendencias", use_container_width=True):
-            st.session_state.selected_tab = "Tendencias y Rankings"
-        
         if st.button("Análisis Geográfico", key="nav_geografico", use_container_width=True):
             st.session_state.selected_tab = "Análisis Geográfico"
         
@@ -555,6 +552,13 @@ def main():
     search_term = ""
     
     # Filtros en columnas
+    # === RESETEAR FILTROS (antes de crear widgets) ===
+    if st.session_state.get('_reset_filtros', False):
+        for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes', 'filtro_tipo_documento']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state['_reset_filtros'] = False
+
     filtros = {}
     col_f1, col_f2, col_f3 = st.columns(3)
     col_f4, col_f5, col_f6, col_f7 = st.columns(4)
@@ -679,9 +683,7 @@ def main():
     with col_f7:
         st.markdown("<br>", unsafe_allow_html=True)  # Espacio para alineación con botones
         if st.button("Resetear Filtros", use_container_width=True, type="secondary"):
-            for key in ['filtro_banco', 'filtro_ciudad', 'filtro_estado', 'filtro_tipo', 'filtro_mes', 'filtro_tipo_documento']:
-                if key in st.session_state:
-                    st.session_state[key] = []
+            st.session_state['_reset_filtros'] = True
             st.rerun()
         
         total_filtros = sum(len(v) for v in filtros.values()) + (1 if search_term else 0)
@@ -1304,108 +1306,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # === TAB 2: TENDENCIAS Y RANKINGS ===
-    elif selected_tab == "Tendencias y Rankings":
-        if df_filt.empty:
-            st.markdown("""
-            <div style='text-align: center; padding: 3rem; background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); 
-                        border-radius: 15px; margin: 2rem 0;'>
-                <h2 style='color: #64748b; font-weight: 600;'>No hay datos para mostrar</h2>
-                <p style='color: #636e72; font-size: 1.1rem;'>Ajusta los filtros para ver resultados</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("### Tendencia Temporal de Oficios")
-            
-            if 'mes' in df_filt.columns and len(df_filt) > 0:
-                oficios_mensual = df_filt.groupby('mes', observed=True).size().reset_index(name='cantidad_oficios')
-                
-                try:
-                    oficios_mensual['mes_datetime'] = pd.to_datetime(oficios_mensual['mes'], format='%Y-%m', errors='coerce')
-                    oficios_mensual = oficios_mensual.dropna(subset=['mes_datetime'])
-                    oficios_mensual = oficios_mensual.sort_values('mes_datetime')
-                    oficios_mensual = oficios_mensual.drop(columns=['mes_datetime'])
-                except Exception as e:
-                    oficios_mensual = oficios_mensual.sort_values('mes')
-                
-                if not oficios_mensual.empty:
-                    fig = go.Figure()
-                    
-                    fig.add_trace(
-                        go.Scatter(
-                            x=oficios_mensual['mes'],
-                            y=oficios_mensual['cantidad_oficios'],
-                            mode='lines+markers',
-                            name="Cantidad de Oficios",
-                            line=dict(color='#3c8198', width=3),
-                            marker=dict(size=8, color='#3c8198', line=dict(width=2, color='white')),
-                            hovertemplate='<b>%{x}</b><br>Cantidad de Oficios: %{y:,.0f}<extra></extra>'
-                        )
-                    )
-                    
-                    # Calcular rango del eje Y para que se vea bien (similar a la imagen: 2k a 12k)
-                    min_val = oficios_mensual['cantidad_oficios'].min()
-                    max_val = oficios_mensual['cantidad_oficios'].max()
-                    
-                    y_min = max(0, min_val - (max_val - min_val) * 0.1)
-                    y_max = max_val + (max_val - min_val) * 0.1
-                    
-                    if max_val > 1000:
-                        y_axis_title = "Cantidad de Oficios"
-                        fig.update_layout(
-                            yaxis=dict(
-                                title=y_axis_title,
-                                range=[y_min, y_max],
-                                tickformat='.0f',
-                                tickmode='linear',
-                                tick0=0,
-                                dtick=(y_max - y_min) / 10 if (y_max - y_min) > 0 else 1000
-                            )
-                        )
-                    else:
-                        fig.update_layout(
-                            yaxis=dict(
-                                title="Cantidad de Oficios",
-                                range=[y_min, y_max]
-                            )
-                        )
-                    
-                    fig.update_layout(
-                        title=dict(
-                            text="Evolución Mensual de Oficios",
-                            font=dict(size=20, color='#2d3748'),
-                            x=0.5,
-                            xanchor='center'
-                        ),
-                        xaxis=dict(
-                            title=dict(text="Mes", font=dict(size=14, color='#4a5568')),
-                            tickangle=-45,
-                            showgrid=True,
-                            gridcolor='rgba(128,128,128,0.2)'
-                        ),
-                        height=500,
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        hovermode='x unified',
-                        font=dict(size=12),
-                        margin=dict(l=80, r=40, t=80, b=100)
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.caption("Haz zoom o pasa el mouse sobre los puntos para ver detalles.")
-                else:
-                    st.warning("No se pudieron calcular los datos de oficios mensuales.")
-            else:
-                st.warning("No hay datos de meses disponibles para el análisis.")
-        
-        # Footer
-        st.markdown("""
-        <div style='text-align: center; padding: 1rem; color: #64748b; font-size: 0.9rem; margin-top: 3rem;'>
-            Desarrollado por Faber Ospina
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # === TAB 3: ANÁLISIS GEOGRÁFICO ===
+    # === TAB 2: ANÁLISIS GEOGRÁFICO ===
     elif selected_tab == "Análisis Geográfico":
         if df_filt.empty:
             st.warning("No hay datos para análisis geográfico.")
@@ -1515,7 +1416,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # === TAB 4: ANÁLISIS DETALLADO ===
+    # === TAB 3: ANÁLISIS DETALLADO ===
     elif selected_tab == "Análisis Detallado":
         if df_filt.empty:
             st.warning("No hay datos para análisis detallado.")
@@ -1649,7 +1550,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # === TAB 5: EXPORTACIÓN ===
+    # === TAB 4: EXPORTACIÓN ===
     elif selected_tab == "Exportación":
         st.markdown("### Exportar Datos")
         
